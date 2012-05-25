@@ -1,8 +1,10 @@
-/* this should serve as a prototype for other strategy constructors. */
-function Common_State() {
-   this.init = false;
-   this.fruit_locations = [];
-   this.update_fruits = function(board) {
+/* 
+this should serve as a prototype for other strategy constructors. 
+requires the constructor of the strategy that wants to use this as
+a prototype to initialize fruit_locations and init. 
+*/
+var common_methods = {
+   update_fruits: function(board) {
       var acc = [];
       for (var i = 0, l = this.fruit_locations.length; i < l; i++) {
          var location = this.fruit_locations[i];
@@ -12,8 +14,8 @@ function Common_State() {
          }
       }
       this.fruit_locations = acc;
-   };
-   this.find_fruits = function(board) {
+   },
+   find_fruits: function(board) {
       for (var col_index = 0; col_index < WIDTH; col_index++) {
          var column = board[col_index];
          for (var row_index = 0; row_index < HEIGHT; row_index++) {
@@ -22,15 +24,23 @@ function Common_State() {
             }
          }
       }
-   };
-   this.init_or_update = function(board) {
+   },
+   init_or_update: function(board) {
       if (!this.init) {
          this.find_fruits(board);
          this.init = true;
       } else {
          this.update_fruits(board);
       }      
-   };
+   }
+};
+
+function create_strategy_instance(constructor) {
+   constructor.prototype = common_methods;
+   var instance = new constructor();
+   instance.init = false;
+   instance.fruit_locations = [];
+   return instance;
 }
 
 /* 
@@ -41,6 +51,7 @@ then this will not affect our decision making and we will move
 towards a location that will be empty before we get there.
 */
 function Closest_Fruit_Strategy() {
+   /* functionality specific to this strategy */
    this.find_closest_fruit_location = function(x, y) {
       var closest = null;
       var min_distance = Infinity;
@@ -82,12 +93,10 @@ function Closest_Fruit_Strategy() {
       return this.calculate_move(closest_fruit_location, [my_x, my_y]);
    };
 }
-Closest_Fruit_Strategy.prototype = new Common_State();
-
 
 var strategy;
 function new_game() {
-   strategy = new Closest_Fruit_Strategy();
+   strategy = create_strategy_instance(Closest_Fruit_Strategy);
 }
 
 function make_move() {

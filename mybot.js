@@ -9,12 +9,13 @@ function new_game() {
 
 
 // make a pass through the board and find all fruit locations
+// board is given in column major order
 function find_fruits(board) {
-   for (var i = 0; i < LENGTH; i++) {
-      var row = board[i];
-      for (var j = 0; j < WIDTH; j++) {
-         if (row[j] || row[j] === 0) {
-            fruit_locations.push([i,j]);
+   for (var col_index = 0; col_index < WIDTH; col_index++) {
+      var column = board[col_index];
+      for (var row_index = 0; row_index < HEIGHT; row_index++) {
+         if (column[row_index]) {
+            fruit_locations.push([col_index, row_index]);
          }
       }
    }
@@ -26,7 +27,7 @@ function update_fruits(board) {
    for (var i = 0, l = fruit_locations.length; i < l; i++) {
       var location = fruit_locations[i];
       var item = board[location[0]][location[1]];
-      if (item || item === 0) {
+      if (item) {
          acc.push(location);
       }
    }
@@ -35,11 +36,11 @@ function update_fruits(board) {
 
 // given a row and column number go through the fruit stash
 // and find the one closest to us using the manhattan metric
-function find_closest_fruit_location(row, column) {
+function find_closest_fruit_location(x, y) {
    var closest = null;
    var min_distance = Infinity;
    fruit_locations.forEach(function(location) {
-      var distance = Math.abs(row - location[0]) + Math.abs(column - location[1]);
+      var distance = Math.abs(x - location[0]) + Math.abs(y - location[1]);
       if (distance <= min_distance) {
          closest = location;
          min_distance = distance;
@@ -62,19 +63,19 @@ function init_or_update(board) {
 // given our location and the location of the closest fruit
 // we calculate which direction we need to travel in
 function calculate_move(closest_fruit_location, my_location) {
-   // figure out if we need to move up or down a row
-   var row_delta = closest_fruit_location[0] - my_location[0];
-   if (row_delta > 0) {
-      return NORTH;
-   } else if (row_delta < 0) {
-      return SOUTH;
+   // figure out if we need to move left or right
+   var x_delta = closest_fruit_location[0] - my_location[0];
+   if (x_delta > 0) {
+      return EAST;
+   } else if (x_delta < 0) {
+      return WEST;
    }
    // figure out if we need to move left or right
-   var column_delta = closest_fruit_location[1] - my_location[1];
-   if (column_delta > 0) {
-      return EAST;
-   } else if (column_delta < 0) {
-      return WEST;
+   var y_delta = closest_fruit_location[1] - my_location[1];
+   if (y_delta > 0) {
+      return SOUTH;
+   } else if (y_delta < 0) {
+      return NORTH;
    }
 }
 

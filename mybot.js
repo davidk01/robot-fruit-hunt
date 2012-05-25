@@ -131,9 +131,9 @@ function Avoid_Fruit_Close_To_Enemy_Strategy() {
          return [location, my_distance, enemy_distance];
       });
       location_distances.sort(function(a,b) {
-         return (a[1] + a[2] - b[1] + b[2]);
+         return (a[1] - a[2] + b[2] - b[1]);
       });
-      return location_distances[0];
+      return location_distances[0][0];
    };
 }
 

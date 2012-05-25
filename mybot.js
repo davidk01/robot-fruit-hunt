@@ -1,7 +1,18 @@
-var closest_fruit_strategy = {
-   init: false,
-   fruit_locations: [],
-   find_fruits: function(board) {
+/* this should serve as a prototype for other strategy constructors. */
+function Common_State() {
+   this.init = false;
+   this.fruit_locations = [];
+}
+
+/* 
+simple greedy strategy for getting to the closest fruit.
+does not take the opponent's location into account when
+making decisions. so if an enemy is closer to a fruit than us
+then this will not affect our decision making and we will move
+towards a location that will be empty before we get there.
+*/
+function Closest_Fruit_Strategy() {
+   this.find_fruits = function(board) {
       for (var col_index = 0; col_index < WIDTH; col_index++) {
          var column = board[col_index];
          for (var row_index = 0; row_index < HEIGHT; row_index++) {
@@ -10,8 +21,8 @@ var closest_fruit_strategy = {
             }
          }
       }
-   },
-   update_fruits: function(board) {
+   };
+   this.update_fruits = function(board) {
       var acc = [];
       for (var i = 0, l = this.fruit_locations.length; i < l; i++) {
          var location = this.fruit_locations[i];
@@ -21,8 +32,8 @@ var closest_fruit_strategy = {
          }
       }
       this.fruit_locations = acc;
-   },
-   find_closest_fruit_location: function(x, y) {
+   };
+   this.find_closest_fruit_location = function(x, y) {
       var closest = null;
       var min_distance = Infinity;
       this.fruit_locations.forEach(function(location) {
@@ -33,16 +44,16 @@ var closest_fruit_strategy = {
          }
       });
       return closest;
-   },
-   init_or_update: function(board) {
+   };
+   this.init_or_update = function(board) {
       if (!this.init) {
          this.find_fruits(board);
          this.init = true;
       } else {
          this.update_fruits(board);
       }      
-   },
-   calculate_move: function(closest_fruit_location, my_location) {
+   };
+   this.calculate_move = function(closest_fruit_location, my_location) {
       // figure out if we need to move left or right
       var x_delta = closest_fruit_location[0] - my_location[0];
       if (x_delta > 0) {
@@ -57,8 +68,8 @@ var closest_fruit_strategy = {
       } else if (y_delta < 0) {
          return NORTH;
       }
-   },
-   make_move: function(board) {
+   };
+   this.make_move = function(board) {
       var my_x = get_my_x(), my_y = get_my_y();
       if (board[my_x][my_y] > 0) {
           return TAKE;
@@ -69,16 +80,16 @@ var closest_fruit_strategy = {
          return PASS;
       }
       return this.calculate_move(closest_fruit_location, [my_x, my_y]);
-   }
-};
+   };
+}
+Closest_Fruit_Strategy.prototype = new Common_State();
 
-// initialize certain variables when there is a new game
+
+var strategy;
 function new_game() {
-   closest_fruit_strategy.init = false;
-   closest_fruit_strategy.fruit_locations = [];
+   strategy = new Closest_Fruit_Strategy();
 }
 
-// this is where all the magic happens
 function make_move() {
-   return closest_fruit_strategy.make_move(get_board());
+   return strategy.make_move(get_board());
 }

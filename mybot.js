@@ -2,26 +2,6 @@
 function Common_State() {
    this.init = false;
    this.fruit_locations = [];
-}
-
-/* 
-simple greedy strategy for getting to the closest fruit.
-does not take the opponent's location into account when
-making decisions. so if an enemy is closer to a fruit than us
-then this will not affect our decision making and we will move
-towards a location that will be empty before we get there.
-*/
-function Closest_Fruit_Strategy() {
-   this.find_fruits = function(board) {
-      for (var col_index = 0; col_index < WIDTH; col_index++) {
-         var column = board[col_index];
-         for (var row_index = 0; row_index < HEIGHT; row_index++) {
-            if (column[row_index]) {
-               this.fruit_locations.push([col_index, row_index]);
-            }
-         }
-      }
-   };
    this.update_fruits = function(board) {
       var acc = [];
       for (var i = 0, l = this.fruit_locations.length; i < l; i++) {
@@ -33,6 +13,34 @@ function Closest_Fruit_Strategy() {
       }
       this.fruit_locations = acc;
    };
+   this.find_fruits = function(board) {
+      for (var col_index = 0; col_index < WIDTH; col_index++) {
+         var column = board[col_index];
+         for (var row_index = 0; row_index < HEIGHT; row_index++) {
+            if (column[row_index]) {
+               this.fruit_locations.push([col_index, row_index]);
+            }
+         }
+      }
+   };
+   this.init_or_update = function(board) {
+      if (!this.init) {
+         this.find_fruits(board);
+         this.init = true;
+      } else {
+         this.update_fruits(board);
+      }      
+   };
+}
+
+/* 
+simple greedy strategy for getting to the closest fruit.
+does not take the opponent's location into account when
+making decisions. so if an enemy is closer to a fruit than us
+then this will not affect our decision making and we will move
+towards a location that will be empty before we get there.
+*/
+function Closest_Fruit_Strategy() {
    this.find_closest_fruit_location = function(x, y) {
       var closest = null;
       var min_distance = Infinity;
@@ -44,14 +52,6 @@ function Closest_Fruit_Strategy() {
          }
       });
       return closest;
-   };
-   this.init_or_update = function(board) {
-      if (!this.init) {
-         this.find_fruits(board);
-         this.init = true;
-      } else {
-         this.update_fruits(board);
-      }      
    };
    this.calculate_move = function(closest_fruit_location, my_location) {
       // figure out if we need to move left or right

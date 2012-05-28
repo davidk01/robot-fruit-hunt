@@ -1,9 +1,59 @@
 /*
+methods that don't really depend on accessing the API
+provided by the game engine should go here. there is no
+point in putting such functions into the strategy prototype.
+ */
+var coordinate_functions = {
+  /* taxicab metric */
+  manhattan_metric : function (from, to) {
+    "use strict";
+    return Math.abs(from[0] - to[0]) + Math.abs(from[1] - to[1]);
+  },
+  /*
+  the start and end points can be in the following configurations:
+     s  +  o      o  -  s      o  +  e      e  -  o                              s      e
+  1) +     +  2)  +     +  3)  -     -  4)  -     -  5)  s  +  e  6)  e - s  7)  +  8)  -
+     o  +  e      e  -  o      s  +  o      o  -  s                              e      s
+  we want to return coordinates that will make the box look like:
+  l  #  o
+  #     #  or   l # r
+  o  #  r
+  because we don't really care about how the path from start to end
+  is oriented.
+   */
+  box_coordinates_from_endpoints : function (start, end) {
+    var col_delta = end[0] - start[0], row_delta = end[1] - start[1];
+    var orientation = col_delta * row_delta;
+    if (orientation === 0) { /* degenerate case of horizontal or vertical line */
+      if (col_delta === 0) { /* vertical line, config 7) or 8)*/
+        return row_delta > 0 ? {left : start, right : end} : {left : end, right : start};
+      } else { /* row_delta === 0 : horizontal line, config 5) or 6) */
+        return col_delta > 0 ? {left : start, right : end} : {left : end, right : start};
+      }
+    } else if (orientation > 0) { /* this is config 1) or 4) */
+      if (col_delta > 0) { /* config 1) */
+        return {left : start, right : end};
+      } else { /* config 4) */
+        return {left : end, right : start};
+      }
+    } else { /* orientation < 0 : this is config 2) or 3) */
+      var shifted_start = [start[0] + col_delta, start[1]];
+      var shifted_end = [end[0] - col_delta, end[1]];
+      if (col_delta < 0) { /* config 2) */
+        return {left : shifted_start, right : shifted_end};
+      } else { /* config 4) */
+        return {left : shifted_end, right : shifted_start};
+      }
+    }
+  }
+};
+
+/*
  this should serve as a prototype for other strategy constructors.
  requires the constructor of the strategy that wants to use this as
  a prototype to initialize fruit_locations and init.
  */
-var common_methods = {
+var common_strategy_methods = {
   /*
    similar to find_fruits but instead of going through each cell of the board
    we only check the locations that we know had fruit to begin with.
@@ -48,13 +98,6 @@ var common_methods = {
     }, this);
   },
   /*
-   we can only move up, down, left, right so the right metric to
-   use is the manhattan metric, a.k.a. taxicab metric.
-   */
-  manhattan_metric : function (from, to) {
-    return Math.abs(from[0] - to[0]) + Math.abs(from[1] - to[1]);
-  },
-  /*
    the game has a predefined set of constants for directional movement.
    so given where we want to move and some other location this function
    returns one of the direction specifiers that will get us closer to
@@ -95,21 +138,53 @@ var common_methods = {
     var closest_fruit = null, closest_distance = Infinity, fruit_stash = this.fruit_stash;
     fruit_stash.fruits.forEach(function (fruit) {
       fruit_stash[fruit].forEach(function (fruit_loc) {
-        var distance = this.manhattan_metric(loc, fruit_loc);
+        var distance = coordinate_functions.manhattan_metric(loc, fruit_loc);
         if (distance <= closest_distance) {
           closest_distance = distance;
           closest_fruit = fruit_loc;
         }
-      }, this);
-    }, this);
+      });
+    });
     return closest_fruit;
+  },
+  /* given coordinates of some bounding box we return
+  the locations of all the fruits that will fit in that box.
+   */
+  fruits_in_a_box : function (top_left_endpoint, bottom_right_endpoint) {
+    var left_col_limit = top_left_endpoint[0], right_col_limit = bottom_right_endpoint[0];
+    var top_row_limit = top_left_endpoint[1], bottom_row_limit = bottom_right_endpoint[1];
+    var fruit_stash = this.fruit_stash, potential_fruit_locations = [];
+    fruit_stash.fruits.forEach(function (fruit) {
+      fruit_stash[fruit].filter(function (fruit_location) {
+        /* check column limits */
+        if (fruit_location[0] >= left_col_limit && fruit_location[0] <= right_col_limit) {
+          /* check row limits */
+          if (fruit_location[1] <= top_row_limit && fruit_location[1] >= bottom_row_limit) {
+            potential_fruit_locations.push(fruit_location);
+          }
+        }
+      });
+    });
+    return potential_fruit_locations;
+  },
+  /* if there is a rare fruit, i.e. only one of it exists
+  then getting it will give us an advantage so we chart
+  a path to it that goes through as many fruits as possible.
+  we can solve the problem more generally by taking two points
+  and trying to chart a path from one to the other that has
+  as many fruits on it as possible. this should be called
+  after we have initialized or updated the fruit locations.
+   */
+  chart_a_path : function (start, end, fuel) {
+    var canonical_box_rep = coordinate_functions.box_coordinates_from_endpoints(start, end);
+    var fruit_locations_in_box = this.fruits_in_a_box(canonical_box_rep.left, canonical_box_rep.right);
   }
 };
 
 /* this should work while I figure out a better way to do this */
 function create_strategy_instance(Constructor) {
   /* set prototype and create an instance. */
-  Constructor.prototype = common_methods;
+  Constructor.prototype = common_strategy_methods;
   var instance = new Constructor();
   /* initialize common state. */
   instance.init = false;

@@ -50,10 +50,10 @@ var GamePlay = {
                var score = 0;
                for (var i=0; i<GamePlay.itemTypeCount; i++) {
                    if (Board.myBotCollected[i] > Board.simpleBotCollected[i]) {
-                       score = score + 1;
+                       score += 1;
                    }
                    if (Board.myBotCollected[i] < Board.simpleBotCollected[i]) {
-                       score = score - 1;
+                       score -= 1;
                    }
                }
                if (score > 0) {
@@ -66,7 +66,7 @@ var GamePlay = {
                    ctx.fillStyle = "#000";
                    ctx.fillText("You lose!", 0, 275);
                }
-               if (score == 0) {
+               if (score === 0) {
                    ctx.font = "30px Arial";
                    ctx.fillStyle = "#000";
                    ctx.fillText("You tie!", 0, 275);
@@ -75,7 +75,7 @@ var GamePlay = {
                return;
            }
            Board.processMove();
-           setTimeout(function() {GamePlay.draw();}, 500);
+           setTimeout(function() {GamePlay.draw();}, 100);
         } else {
            GamePlay.mode = "pause";
         }
@@ -124,4 +124,4 @@ var GamePlay = {
             }
         }
     }
-}
+};

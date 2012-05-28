@@ -1,147 +1,169 @@
-/* 
-this should serve as a prototype for other strategy constructors. 
-requires the constructor of the strategy that wants to use this as
-a prototype to initialize fruit_locations and init. 
-*/
+/*
+ this should serve as a prototype for other strategy constructors.
+ requires the constructor of the strategy that wants to use this as
+ a prototype to initialize fruit_locations and init.
+ */
 var common_methods = {
-   update_fruits: function(board) {
-      var acc = [];
-      for (var i = 0, l = this.fruit_locations.length; i < l; i++) {
-         var location = this.fruit_locations[i];
-         var item = board[location[0]][location[1]];
-         if (item) {
-            acc.push(location);
-         }
-      }
-      this.fruit_locations = acc;
-   },
-   find_fruits: function(board) {
-      for (var col_index = 0; col_index < WIDTH; col_index++) {
-         var column = board[col_index];
-         for (var row_index = 0; row_index < HEIGHT; row_index++) {
-            if (column[row_index]) {
-               this.fruit_locations.push([col_index, row_index]);
-            }
-         }
-      }
-   },
-   manhattan_metric: function(from, to) {
-      return Math.abs(from[0] - to[0]) + Math.abs(from[1] - to[1]);
-   },
-   calculate_move: function(move_location, my_location) {
-      // figure out if we need to move left or right
-      var x_delta = move_location[0] - my_location[0];
-      if (x_delta > 0) {
-         return EAST;
-      } else if (x_delta < 0) {
-         return WEST;
-      }
-      // figure out if we need to move left or right
-      var y_delta = move_location[1] - my_location[1];
-      if (y_delta > 0) {
-         return SOUTH;
-      } else if (y_delta < 0) {
-         return NORTH;
-      }
-   },
-   init_or_update_fruit_locations: function(board) {
-      if (!this.init) {
-         this.find_fruits(board);
-         this.init = true;
-      } else {
-         this.update_fruits(board);
-      }      
-   }
+  /*
+  similar to find_fruits but instead of going through each cell of the board
+  we only check the locations that we know had fruit to begin with.
+   */
+  update_fruits : function (board) {
+    /*
+     for each fruit recheck and reassign the locations of that
+     fruit and at the same time update the list of fruits to ones
+     that have a non-empty list of locations.
+     */
+    var fruits = this.fruit_stash.fruits;
+    this.fruit_stash.fruits = fruits.filter(function (fruit) {
+      var updated_locations = this.fruit_stash[fruit].filter(function (loc) {
+        return board[loc[0]][loc[1]] > 0;
+      });
+      this.fruit_stash[fruit] = updated_locations;
+      return updated_locations.length > 0;
+    }, this);
+  },
+  /*
+  go through the board and save all the fruit locations.
+  also, while making a pass through the board we also keep
+  track of how many fruits of that type we would need to
+  get in order to win that category.
+  */
+  find_fruits_and_compute_win_counts : function (board) {
+    board.forEach(function (column, col_index) {
+      column.forEach(function (fruit_type, row_index) {
+        var fruit_location = [col_index, row_index], fruit_locations;
+        if (fruit_type > 0) {
+          fruit_locations = this.fruit_stash[fruit_type];
+          if (fruit_locations) {
+            fruit_locations.push(fruit_location);
+          } else {
+            this.fruit_stash[fruit_type] = [fruit_location];
+            this.fruit_stash.fruits.push(fruit_type);
+            this.win_counts[fruit_type] = 0.5;
+          }
+          this.win_counts[fruit_type] += 0.5;
+        }
+      }, this);
+    }, this);
+  },
+  /*
+  we can only move up, down, left, right so the right metric to
+  use is the manhattan metric, a.k.a. taxicab metric.
+   */
+  manhattan_metric : function (from, to) {
+    return Math.abs(from[0] - to[0]) + Math.abs(from[1] - to[1]);
+  },
+  /*
+  the game has a predefined set of constants for directional movement.
+  so given where we want to move and some other location this function
+  returns one of the direction specifiers that will get us closer to
+  the desired location.
+   */
+  calculate_move_direction : function (move_location, my_location) {
+    // figure out if we need to move left or right
+    var x_delta = move_location[0] - my_location[0];
+    if (x_delta !== 0) {
+      return x_delta > 0 ? EAST : WEST;
+    }
+    // figure out if we need to move left or right
+    var y_delta = move_location[1] - my_location[1];
+    if (y_delta !== 0) {
+      return y_delta > 0 ? SOUTH : NORTH;
+    }
+  },
+  /*
+  convenience function for updating fruit locations. this
+  should be called on every turn of the game to update the
+  locations of the fruits.
+   */
+  init_or_update_fruit_locations : function (board) {
+    if (!this.init) {
+      this.find_fruits_and_compute_win_counts(board);
+      this.init = true;
+    } else {
+      this.update_fruits(board);
+    }
+  },
+  /*
+  finds the closest fruit to a given location. will throw
+  an exception or return null if fruit_stash and fruit_stash.fruits
+  don't contain anything. so this function will only return sensible
+  results if our fruit_stash is sane.
+   */
+  find_closest_fruit : function (loc) {
+    var closest_fruit = null, closest_distance = Infinity, fruit_stash = this.fruit_stash;
+    fruit_stash.fruits.forEach(function (fruit) {
+      fruit_stash[fruit].forEach(function (fruit_loc) {
+        var distance = this.manhattan_metric(loc, fruit_loc);
+        if (distance <= closest_distance) {
+          closest_distance = distance;
+          closest_fruit = fruit_loc;
+        }
+      }, this);
+    }, this);
+    return closest_fruit;
+  }
 };
 
 /* this should work while I figure out a better way to do this */
-function create_strategy_instance(constructor) {
-   constructor.prototype = common_methods;
-   var instance = new constructor();
-   instance.init = false;
-   instance.fruit_locations = [];
-   return instance;
+function create_strategy_instance(Constructor) {
+  /* set prototype and create an instance. */
+  Constructor.prototype = common_methods;
+  var instance = new Constructor();
+  /* initialize common state. */
+  instance.init = false;
+  instance.fruit_stash = {fruits : []};
+  instance.win_counts = {};
+  /* return the new instance. */
+  return instance;
 }
 
-/* 
-simple greedy strategy for getting to the closest fruit.
-does not take the opponent's location into account when
-making decisions. so if an enemy is closer to a fruit than us
-then this will not affect our decision making and we will move
-towards a location that will be empty before we get there.
-*/
-function Closest_Fruit_Strategy() {
-   /* entry point for strategy */
-   this.make_move = function(board) {
-      var my_x = get_my_x(), my_y = get_my_y();
-      if (board[my_x][my_y] > 0) {
-          return TAKE;
-      }
-      this.init_or_update_fruit_locations(board);
-      var closest_fruit_location = this.find_closest_fruit_location_from(my_x, my_y);
-      if (closest_fruit_location == null) {
-         return PASS;
-      }
-      return this.calculate_move(closest_fruit_location, [my_x, my_y]);
-   };
-   /* auxiliary functionality specific to this strategy */
-   this.find_closest_fruit_location_from = function(x, y) {
-      var closest = null;
-      var min_distance = Infinity;
-      var metric = this.manhattan_metric;
-      this.fruit_locations.forEach(function(location) {
-         var distance = metric([x, y], location);
-         if (distance <= min_distance) {
-            closest = location;
-            min_distance = distance;
-         }
-      });
-      return closest;
-   };
+/*
+the idea here is to use win_counts to ignore fruits that are
+a lost cause and to go after fruits that can potentially get
+us a win. this still doesn't beat the greedy strategy of going
+after the closest fruit first.
+ */
+function Still_Pretty_Greedy() {
+  /*
+  we want to get rid of fruit categories that we have no hope of winning or
+  have already won. we have won a category if we have more than half of the fruit
+  in that category and we have no hope of winning if the enemy can make the same claim.
+   */
+  this.filter_out_won_or_lost_categories = function () {
+    return this.fruit_stash.fruits.filter(function (fruit) {
+      var win_count = this.win_counts[fruit];
+      var my_count = get_my_item_count(fruit), enemy_count = get_opponent_item_count(fruit);
+      var total_collected = my_count + enemy_count;
+      var keep = !(enemy_count >= win_count || total_collected === (2 * win_count - 1));
+      return keep;
+    }, this);
+  };
+  /*
+  update fruit locations, filter out won/lost categories, find the closest
+  fruit and try to go to it.
+   */
+  this.make_move = function (board) {
+    this.init_or_update_fruit_locations(board);
+    this.fruit_stash.fruits = this.filter_out_won_or_lost_categories();
+    var my_loc = [get_my_x(), get_my_y()];
+    if (this.fruit_stash.fruits.length === 0) {
+      return PASS;
+    }
+    var fruit_loc = this.find_closest_fruit(my_loc);
+    var move_direction = this.calculate_move_direction(fruit_loc, my_loc);
+    return move_direction === undefined ? TAKE : move_direction;
+  };
 }
 
-/* similar to closest fruit strategy but now tries to avoid
-moving towards fruit that are likely to be nabbed by an opponent.
-opponent nabbing fruit is determined by figuring out if the opponent
-is closer than us to the fruit.
-*/
-function Avoid_Fruit_Close_To_Enemy_Strategy() {
-   /* the entry point for the strategy */
-   this.make_move = function(board) {
-      var my_x = get_my_x(), my_y = get_my_y();
-      if (board[my_x][my_y] > 0) {
-         return TAKE;
-      }
-      var enemy_x = get_opponent_x(), enemy_y = get_opponent_y();
-      this.init_or_update_fruit_locations(board);
-      var move_location = this.next_potential_fruit_location([enemy_x, enemy_y], [my_x, my_y]);
-      if (move_location == null) {
-         return PASS;
-      }
-      return this.calculate_move(move_location, [my_x, my_y]);
-   };
-   /* auxiliary methods */
-   this.next_potential_fruit_location = function(enemy_location, my_location) {
-      var good_location = null;
-      var metric = this.manhattan_metric;
-      var min_distance = Infinity;
-      var location_distances = this.fruit_locations.map(function(location) {
-         var enemy_distance = metric(enemy_location, location);
-         var my_distance = metric(my_location, location);
-         return [location, my_distance, enemy_distance];
-      });
-      location_distances.sort(function(a,b) {
-         return (a[1] + a[2] - b[1] + b[2]);
-      });
-      return location_distances[0];
-   };
-}
-
+/* initialize a strategy instance when the game starts. */
 var strategy;
 function new_game() {
-   strategy = create_strategy_instance(Avoid_Fruit_Close_To_Enemy_Strategy);
+  strategy = create_strategy_instance(Still_Pretty_Greedy);
 }
 
+/* implementation of the contract required by the game engine. */
 function make_move() {
-   return strategy.make_move(get_board());
+  return strategy.make_move(get_board());
 }

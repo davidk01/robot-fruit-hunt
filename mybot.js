@@ -276,11 +276,10 @@ function create_strategy_instance(Constructor) {
   return instance;
 }
 
-/*
- the idea here is to use win_counts to ignore fruits that are
- a lost cause and to go after fruits that can potentially get
- us a win. this still doesn't beat the greedy strategy of going
- after the closest fruit first.
+/**
+ * Constructor for a greedy strategy that tries to ignore
+ * fruits that are obviously won or lost.
+ * @constructor
  */
 function Still_Pretty_Greedy() {
   /*

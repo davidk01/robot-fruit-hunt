@@ -150,7 +150,7 @@ function Still_Pretty_Greedy() {
     var my_loc = [get_my_x(), get_my_y()];
     if (this.fruit_stash.fruits.length === 0) {
       return PASS;
-    } /* test */
+    }
     var fruit_loc = this.find_closest_fruit(my_loc);
     var move_direction = this.calculate_move_direction(fruit_loc, my_loc);
     return move_direction === undefined ? TAKE : move_direction;

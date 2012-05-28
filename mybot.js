@@ -1,25 +1,33 @@
-/*
-methods that don't really depend on accessing the API
-provided by the game engine should go here. there is no
-point in putting such functions into the strategy prototype.
+/**
+ * Serves as a namespace for functions that deal with grid
+ * coordinates but don't do any kind of path finding.
+ * @type {Object}
  */
 var coordinate_functions = {
-  /* taxicab metric */
+  /**
+   * The taxicab metric for a 2d grid of points.
+   * @param from The starting position.
+   * @param to The ending position.
+   * @return {Number} The distance from the starting position to the ending position.
+   */
   manhattan_metric : function (from, to) {
-    "use strict";
     return Math.abs(from[0] - to[0]) + Math.abs(from[1] - to[1]);
   },
-  /*
-  the start and end points can be in the following configurations:
-     s  +  o      o  -  s      o  +  e      e  -  o                              s      e
-  1) +     +  2)  +     +  3)  -     -  4)  -     -  5)  s  +  e  6)  e - s  7)  +  8)  -
-     o  +  e      e  -  o      s  +  o      o  -  s                              e      s
-  we want to return coordinates that will make the box look like:
-  l  #  o
-  #     #  or   l # r
-  o  #  r
-  because we don't really care about how the path from start to end
-  is oriented.
+  /**
+   * the start and end points can be in the following configurations:
+   * s  +  o      o  -  s      o  +  e      e  -  o                              s      e
+   * 1) +     +  2)  +     +  3)  -     -  4)  -     -  5)  s  +  e  6)  e - s  7)  +  8)  -
+   * o  +  e      e  -  o      s  +  o      o  -  s                              e      s
+   * we want to return coordinates that will make the box look like:
+   * l  #  o
+   * #     #  or   l # r
+   * o  #  r
+   * because we don't really care about how the path from start to end
+   * is oriented.
+   * @param start The starting point of the path.
+   * @param end The ending point of the path.
+   * @returns {Object} An object with "left", "right" properties that contains the
+   * non-oriented coordinates.
    */
   box_coordinates_from_endpoints : function (start, end) {
     var col_delta = end[0] - start[0], row_delta = end[1] - start[1];
@@ -48,15 +56,95 @@ var coordinate_functions = {
   }
 };
 
-/*
- this should serve as a prototype for other strategy constructors.
- requires the constructor of the strategy that wants to use this as
- a prototype to initialize fruit_locations and init.
+/**
+ * Serves as the namespace for functions that do something with paths
+ * from one endpoint to another.
+ * @type {Object}
+ */
+var path_construction = {
+  /**
+   * Given a point that we consider a starting point we extend the partial
+   * path already constructed towards that point. If the head of the partial
+   * path is already the goal point then we stop extending the path.
+   * @param goal The point we want to treat as the starting point of the path.
+   * @param current_path An already constructed partial path that we want to extend.
+   * @returns A list of possible path extensions of the partial path.
+   */
+  extend_path : function (goal, current_path) {
+    var path_head = current_path[0];
+    var delta_x = goal[0] - path_head[0], delta_y = goal[1] - path_head[1];
+    var possible_new_nodes = [];
+    if (delta_x !== 0) {
+      if (delta_x > 0) {
+        possible_new_nodes.push([path_head[0] + 1, path_head[1]]);
+      } else {
+        possible_new_nodes.push([path_head[0] - 1, path_head[1]]);
+      }
+    }
+    if (delta_y !== 0) {
+      if (delta_y > 0) {
+        possible_new_nodes.push([path_head[0], path_head[1] + 1]);
+      } else {
+        possible_new_nodes.push([path_head[0], path_head[1] - 1]);
+      }
+    }
+    return possible_new_nodes.length > 0 ?
+      possible_new_nodes.map(function (node) { return [node].concat(current_path); }) : [current_path];
+  },
+  /**
+   * Given a goal and a partial path we figure out if the partial path can be extended.
+   * A partial path can be extended if the head of the list does not equal the goal point.
+   * @param goal We want to extend the partial path to this point.
+   * @param partial_path An already constructed path we want to test for extension.
+   * @return {Boolean} True if the path can be extended and false otherwise.
+   */
+  can_extend : function(goal, partial_path) {
+    return (goal[0] - partial_path[0][0]) !== 0 || (goal[1] - partial_path[0][1]) !== 0;
+  },
+  /**
+   * Given a start and end point we construct the set of all paths
+   * from start to end.
+   * @param start Our starting point.
+   * @param end Our ending point.
+   * @return {Array} A list of paths from start to end.
+   */
+  construct_possible_paths : function (start, end) {
+    if ((start[0] - end[0]) === 0 && (start[1] - end[1]) === 0) {
+      throw "Can't construct path for points that coincide.";
+    }
+    var extender = function (path) { return this.extend_path(start, path); };
+    var reducer = function (acc, extensions) { return acc.concat(extensions); };
+    var extension_checker = function (partial_path) { return this.can_extend(start, partial_path); };
+    var paths = [[end]];
+    while (paths.some(extension_checker, this)) {
+      paths = paths.map(extender, this).reduce(reducer, []);
+    }
+    return paths;
+  },
+  /**
+   * Given a set of paths and a functions that maps paths to boolean values
+   * this function returns the subset of paths that are mapped to true with
+   * the filter function.
+   * @param paths The set of paths we want to filter.
+   * @param filter A function that maps paths to boolean values.
+   * @returns {Array} A subset of the paths that are mapped to true by the filter
+   * function.
+   */
+  filter_paths : function(paths, filter) {
+    return paths.filter(filter);
+  }
+};
+
+/**
+ * this should serve as a prototype for other strategy constructors.
+ * requires the constructor of the strategy that wants to use this as
+ * a prototype to initialize fruit_locations and init.
+ * @type {Object}
  */
 var common_strategy_methods = {
-  /*
-   similar to find_fruits but instead of going through each cell of the board
-   we only check the locations that we know had fruit to begin with.
+  /**
+   * similar to find_fruits but instead of going through each cell of the board
+   * we only check the locations that we know had fruit to begin with.
    */
   update_fruits : function (board) {
     /*
@@ -166,22 +254,16 @@ var common_strategy_methods = {
       });
     });
     return potential_fruit_locations;
-  },
-  /* if there is a rare fruit, i.e. only one of it exists
-  then getting it will give us an advantage so we chart
-  a path to it that goes through as many fruits as possible.
-  we can solve the problem more generally by taking two points
-  and trying to chart a path from one to the other that has
-  as many fruits on it as possible. this should be called
-  after we have initialized or updated the fruit locations.
-   */
-  chart_a_path : function (start, end, fuel) {
-    var canonical_box_rep = coordinate_functions.box_coordinates_from_endpoints(start, end);
-    var fruit_locations_in_box = this.fruits_in_a_box(canonical_box_rep.left, canonical_box_rep.right);
   }
 };
 
-/* this should work while I figure out a better way to do this */
+/**
+ * Initializes strategy instances given a constructor that creates
+ * an object instance that conforms to the game API.
+ * @param Constructor A constructor that returns an instance of a strategy that conforms to the game API.
+ * @return {Object} An instance that has its prototype linked to common_strategy_methods and
+ * has various properties initialized to what is expected by the methods in common_strategy_methods.
+ */
 function create_strategy_instance(Constructor) {
   /* set prototype and create an instance. */
   Constructor.prototype = common_strategy_methods;
@@ -232,13 +314,20 @@ function Still_Pretty_Greedy() {
   };
 }
 
-/* initialize a strategy instance when the game starts. */
 var strategy;
+/**
+ * Called every time a new game starts. Currently it creates a new
+ * strategy instance every time this function is called.
+ */
 function new_game() {
   strategy = create_strategy_instance(Still_Pretty_Greedy);
 }
 
-/* implementation of the contract required by the game engine. */
+/**
+ * The function required by the game API. It just delegates to
+ * the make_move method of the strategy instance created by new_game.
+ * @return {*}
+ */
 function make_move() {
   return strategy.make_move(get_board());
 }

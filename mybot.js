@@ -5,8 +5,8 @@
  */
 var common_methods = {
   /*
-  similar to find_fruits but instead of going through each cell of the board
-  we only check the locations that we know had fruit to begin with.
+   similar to find_fruits but instead of going through each cell of the board
+   we only check the locations that we know had fruit to begin with.
    */
   update_fruits : function (board) {
     /*
@@ -24,11 +24,11 @@ var common_methods = {
     }, this);
   },
   /*
-  go through the board and save all the fruit locations.
-  also, while making a pass through the board we also keep
-  track of how many fruits of that type we would need to
-  get in order to win that category.
-  */
+   go through the board and save all the fruit locations.
+   also, while making a pass through the board we also keep
+   track of how many fruits of that type we would need to
+   get in order to win that category.
+   */
   find_fruits_and_compute_win_counts : function (board) {
     board.forEach(function (column, col_index) {
       column.forEach(function (fruit_type, row_index) {
@@ -48,17 +48,17 @@ var common_methods = {
     }, this);
   },
   /*
-  we can only move up, down, left, right so the right metric to
-  use is the manhattan metric, a.k.a. taxicab metric.
+   we can only move up, down, left, right so the right metric to
+   use is the manhattan metric, a.k.a. taxicab metric.
    */
   manhattan_metric : function (from, to) {
     return Math.abs(from[0] - to[0]) + Math.abs(from[1] - to[1]);
   },
   /*
-  the game has a predefined set of constants for directional movement.
-  so given where we want to move and some other location this function
-  returns one of the direction specifiers that will get us closer to
-  the desired location.
+   the game has a predefined set of constants for directional movement.
+   so given where we want to move and some other location this function
+   returns one of the direction specifiers that will get us closer to
+   the desired location.
    */
   calculate_move_direction : function (move_location, my_location) {
     // figure out if we need to move left or right
@@ -73,9 +73,9 @@ var common_methods = {
     }
   },
   /*
-  convenience function for updating fruit locations. this
-  should be called on every turn of the game to update the
-  locations of the fruits.
+   convenience function for updating fruit locations. this
+   should be called on every turn of the game to update the
+   locations of the fruits.
    */
   init_or_update_fruit_locations : function (board) {
     if (!this.init) {
@@ -86,10 +86,10 @@ var common_methods = {
     }
   },
   /*
-  finds the closest fruit to a given location. will throw
-  an exception or return null if fruit_stash and fruit_stash.fruits
-  don't contain anything. so this function will only return sensible
-  results if our fruit_stash is sane.
+   finds the closest fruit to a given location. will throw
+   an exception or return null if fruit_stash and fruit_stash.fruits
+   don't contain anything. so this function will only return sensible
+   results if our fruit_stash is sane.
    */
   find_closest_fruit : function (loc) {
     var closest_fruit = null, closest_distance = Infinity, fruit_stash = this.fruit_stash;
@@ -119,18 +119,17 @@ function create_strategy_instance(Constructor) {
   return instance;
 }
 
-<<<<<<< HEAD
 /*
-the idea here is to use win_counts to ignore fruits that are
-a lost cause and to go after fruits that can potentially get
-us a win. this still doesn't beat the greedy strategy of going
-after the closest fruit first.
+ the idea here is to use win_counts to ignore fruits that are
+ a lost cause and to go after fruits that can potentially get
+ us a win. this still doesn't beat the greedy strategy of going
+ after the closest fruit first.
  */
 function Still_Pretty_Greedy() {
   /*
-  we want to get rid of fruit categories that we have no hope of winning or
-  have already won. we have won a category if we have more than half of the fruit
-  in that category and we have no hope of winning if the enemy can make the same claim.
+   we want to get rid of fruit categories that we have no hope of winning or
+   have already won. we have won a category if we have more than half of the fruit
+   in that category and we have no hope of winning if the enemy can make the same claim.
    */
   this.filter_out_won_or_lost_categories = function () {
     return this.fruit_stash.fruits.filter(function (fruit) {
@@ -142,8 +141,8 @@ function Still_Pretty_Greedy() {
     }, this);
   };
   /*
-  update fruit locations, filter out won/lost categories, find the closest
-  fruit and try to go to it.
+   update fruit locations, filter out won/lost categories, find the closest
+   fruit and try to go to it.
    */
   this.make_move = function (board) {
     this.init_or_update_fruit_locations(board);
@@ -156,43 +155,6 @@ function Still_Pretty_Greedy() {
     var move_direction = this.calculate_move_direction(fruit_loc, my_loc);
     return move_direction === undefined ? TAKE : move_direction;
   };
-=======
-/* similar to closest fruit strategy but now tries to avoid
-moving towards fruit that are likely to be nabbed by an opponent.
-opponent nabbing fruit is determined by figuring out if the opponent
-is closer than us to the fruit.
-*/
-function Avoid_Fruit_Close_To_Enemy_Strategy() {
-   /* the entry point for the strategy */
-   this.make_move = function(board) {
-      var my_x = get_my_x(), my_y = get_my_y();
-      if (board[my_x][my_y] > 0) {
-         return TAKE;
-      }
-      var enemy_x = get_opponent_x(), enemy_y = get_opponent_y();
-      this.init_or_update_fruit_locations(board);
-      var move_location = this.next_potential_fruit_location([enemy_x, enemy_y], [my_x, my_y]);
-      if (move_location == null) {
-         return PASS;
-      }
-      return this.calculate_move(move_location, [my_x, my_y]);
-   };
-   /* auxiliary methods */
-   this.next_potential_fruit_location = function(enemy_location, my_location) {
-      var good_location = null;
-      var metric = this.manhattan_metric;
-      var min_distance = Infinity;
-      var location_distances = this.fruit_locations.map(function(location) {
-         var enemy_distance = metric(enemy_location, location);
-         var my_distance = metric(my_location, location);
-         return [location, my_distance, enemy_distance];
-      });
-      location_distances.sort(function(a,b) {
-         return (a[1] - a[2] + b[2] - b[1]);
-      });
-      return location_distances[0][0];
-   };
->>>>>>> f8888aaf7e6165b6e33dd1bcdbbb926f2a62adee
 }
 
 /* initialize a strategy instance when the game starts. */

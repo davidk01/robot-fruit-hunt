@@ -53,6 +53,30 @@ var coordinate_functions = {
         return {left : shifted_end, right : shifted_start};
       }
     }
+  },
+  /**
+   * Given coordinates of a bounding box and some nodes we figure
+   * out which ones fit in that box and return them.
+   * @param box_coords An object with "left", "right" properties that
+   * contains the coordinates of the top left and bottom right end points
+   * of the bounding box.
+   * @param nodes The set of initial nodes we want to filter down to ones
+   * that are contained in the bounding box.
+   * @returns {Array} The list of nodes contained in the bounding box
+   */
+  nodes_in_box : function(box_coords, nodes) {
+    var left_col_limit = box_coords.left[0], right_col_limit = box_coords.right[0];
+    var top_row_limit = box_coords.left[1], bottom_row_limit = box_coords.right[1];
+    return nodes.filter(function (node) {
+      /* check column limits */
+      if (node[0] >= left_col_limit && node[0] <= right_col_limit) {
+        /* check row limits */
+        if (node[1] <= top_row_limit && node[1] >= bottom_row_limit) {
+          return true;
+        }
+      }
+      return false;
+    });
   }
 };
 
@@ -132,6 +156,29 @@ var path_construction = {
    */
   filter_paths : function(paths, filter) {
     return paths.filter(filter);
+  },
+  /**
+   * Given a start and end points along with nodes we want to pass through
+   * we construct the paths that only pass through those nodes and no more.
+   * @param start The initial point for the set of paths we want to construct.
+   * @param end The terminal point for the set of paths.
+   * @param nodes The set of points we want our paths to go through. The assumption
+   * is that these nodes are contained in the box defined by the start and end points.
+   * @returns {Array} The set of paths given as a set of ordered points.
+   */
+  construct_restricted_paths : function(start, end, nodes) {
+    /* construct a reachability graph and refine it */
+    var reachability_graph = {start : nodes};
+
+  },
+  single_refinement_step : function(end, reachability_graph) {
+    var reachable_nodes, s;
+    for (s in reachability_graph) {
+      reachable_nodes = reachability_graph[s];
+      reachable_nodes.forEach(function (node) {
+        var box_coords = coordinate_functions.box_coordinates_from_endpoints(node, end);
+      }, this);
+    }
   }
 };
 

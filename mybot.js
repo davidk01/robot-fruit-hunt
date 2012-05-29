@@ -89,6 +89,11 @@ var coordinate_functions = {
  * @type {Object}
  */
 var path_construction = {
+  merge : function (a, b) {
+    for (var k in b) {
+      a[k] = b[k];
+    }
+  },
   /**
    * Given a start and end points along with nodes we want to pass through
    * we construct the paths that only pass through those nodes and no more.
@@ -100,8 +105,19 @@ var path_construction = {
    */
   construct_restricted_paths : function(start, end, nodes) {
     /* construct a reachability graph and refine it */
-    var reachability_graph = {start : nodes};
-
+    var initial_graph = {};
+    initial_graph[start] = nodes;
+    var refined_graph = this.single_refinement_step(end, initial_graph);
+    var need_further_refinement = Object.keys(refined_graph);
+    /* base case */
+    if (need_further_refinement.length === 0) {
+      return initial_graph;
+    }
+    /* recursive case */
+    need_further_refinement.map(function (node) {
+      return this.construct_restricted_paths(node, end, refined_graph[node]);
+    }, this).forEach(function (graph) { this.merge(initial_graph, graph); }, this);
+    return initial_graph;
   },
   refine : function (end, nodes, accumulator) {
     var reachable_nodes = {};
@@ -109,29 +125,21 @@ var path_construction = {
       var box_coords = coordinate_functions.box_coordinates_from_endpoints(node, end);
       var filter = function (n) { return n[0] !== node[0] && n[1] !== node[1]; };
       var refined_nodes = coordinate_functions.nodes_in_box(box_coords, nodes, filter);
-      refined_nodes.forEach(function (node) { reachable_nodes[node] = true; });
-      accumulator[node] = refined_nodes;
+      if (refined_nodes.length > 0) {
+        refined_nodes.forEach(function (node) { reachable_nodes[node] = true; });
+        accumulator[node] = refined_nodes;
+      }
     });
     return reachable_nodes;
   },
-  /* Assume the reachability graph is of the form s -> {reachable nodes}
-  and reachable nodes does not include s. */
   single_refinement_step : function(end, reachability_graph) { 
     var new_graph = {};
     for (s in reachability_graph) {
       var reachable_nodes = this.refine(end, reachability_graph[s], new_graph);
-      new_graph[s] = reachability_graph[s].filter(function (node) { return !reachable_nodes[node]; });
+      reachability_graph[s] = reachability_graph[s].filter(function (node) { return !reachable_nodes[node]; });
     }
     return new_graph;
-  },
-  test_graph : {
-    "0,0" : [[1,1]],
-    "1,1" : [[2,2],[3,3],[4,4],[5,5]],
-    "2,2" : [[3,3],[4,4],[5,5]],
-    "3,3" : [[4,4],[5,5]],
-    "4,4" : [[5,5]],
-    "5,5" : []
-  },
+  }
 };
 
 /**

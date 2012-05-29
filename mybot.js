@@ -64,15 +64,18 @@ var coordinate_functions = {
    * that are contained in the bounding box.
    * @returns {Array} The list of nodes contained in the bounding box
    */
-  nodes_in_box : function(box_coords, nodes) {
+  nodes_in_box : function(box_coords, nodes, extra_filter) {
+    if (!extra_filter) {
+      extra_filter = function (node) { return true; };
+    }
     var left_col_limit = box_coords.left[0], right_col_limit = box_coords.right[0];
     var top_row_limit = box_coords.left[1], bottom_row_limit = box_coords.right[1];
     return nodes.filter(function (node) {
       /* check column limits */
       if (node[0] >= left_col_limit && node[0] <= right_col_limit) {
         /* check row limits */
-        if (node[1] <= top_row_limit && node[1] >= bottom_row_limit) {
-          return true;
+        if (node[1] >= top_row_limit && node[1] <= bottom_row_limit) {
+          return extra_filter(node);
         }
       }
       return false;
@@ -87,77 +90,6 @@ var coordinate_functions = {
  */
 var path_construction = {
   /**
-   * Given a point that we consider a starting point we extend the partial
-   * path already constructed towards that point. If the head of the partial
-   * path is already the goal point then we stop extending the path.
-   * @param goal The point we want to treat as the starting point of the path.
-   * @param current_path An already constructed partial path that we want to extend.
-   * @returns A list of possible path extensions of the partial path.
-   */
-  extend_path : function (goal, current_path) {
-    var path_head = current_path[0];
-    var delta_x = goal[0] - path_head[0], delta_y = goal[1] - path_head[1];
-    var possible_new_nodes = [];
-    if (delta_x !== 0) {
-      if (delta_x > 0) {
-        possible_new_nodes.push([path_head[0] + 1, path_head[1]]);
-      } else {
-        possible_new_nodes.push([path_head[0] - 1, path_head[1]]);
-      }
-    }
-    if (delta_y !== 0) {
-      if (delta_y > 0) {
-        possible_new_nodes.push([path_head[0], path_head[1] + 1]);
-      } else {
-        possible_new_nodes.push([path_head[0], path_head[1] - 1]);
-      }
-    }
-    return possible_new_nodes.length > 0 ?
-      possible_new_nodes.map(function (node) { return [node].concat(current_path); }) : [current_path];
-  },
-  /**
-   * Given a goal and a partial path we figure out if the partial path can be extended.
-   * A partial path can be extended if the head of the list does not equal the goal point.
-   * @param goal We want to extend the partial path to this point.
-   * @param partial_path An already constructed path we want to test for extension.
-   * @return {Boolean} True if the path can be extended and false otherwise.
-   */
-  can_extend : function(goal, partial_path) {
-    return (goal[0] - partial_path[0][0]) !== 0 || (goal[1] - partial_path[0][1]) !== 0;
-  },
-  /**
-   * Given a start and end point we construct the set of all paths
-   * from start to end.
-   * @param start Our starting point.
-   * @param end Our ending point.
-   * @return {Array} A list of paths from start to end.
-   */
-  construct_possible_paths : function (start, end) {
-    if ((start[0] - end[0]) === 0 && (start[1] - end[1]) === 0) {
-      throw "Can't construct path for points that coincide.";
-    }
-    var extender = function (path) { return this.extend_path(start, path); };
-    var reducer = function (acc, extensions) { return acc.concat(extensions); };
-    var extension_checker = function (partial_path) { return this.can_extend(start, partial_path); };
-    var paths = [[end]];
-    while (paths.some(extension_checker, this)) {
-      paths = paths.map(extender, this).reduce(reducer, []);
-    }
-    return paths;
-  },
-  /**
-   * Given a set of paths and a functions that maps paths to boolean values
-   * this function returns the subset of paths that are mapped to true with
-   * the filter function.
-   * @param paths The set of paths we want to filter.
-   * @param filter A function that maps paths to boolean values.
-   * @returns {Array} A subset of the paths that are mapped to true by the filter
-   * function.
-   */
-  filter_paths : function(paths, filter) {
-    return paths.filter(filter);
-  },
-  /**
    * Given a start and end points along with nodes we want to pass through
    * we construct the paths that only pass through those nodes and no more.
    * @param start The initial point for the set of paths we want to construct.
@@ -171,15 +103,35 @@ var path_construction = {
     var reachability_graph = {start : nodes};
 
   },
-  single_refinement_step : function(end, reachability_graph) {
-    var reachable_nodes, s;
+  refine : function (end, nodes, accumulator) {
+    var reachable_nodes = {};
+    nodes.forEach(function (node) {
+      var box_coords = coordinate_functions.box_coordinates_from_endpoints(node, end);
+      var filter = function (n) { return n[0] !== node[0] && n[1] !== node[1]; };
+      var refined_nodes = coordinate_functions.nodes_in_box(box_coords, nodes, filter);
+      refined_nodes.forEach(function (node) { reachable_nodes[node] = true; });
+      accumulator[node] = refined_nodes;
+    });
+    return reachable_nodes;
+  },
+  /* Assume the reachability graph is of the form s -> {reachable nodes}
+  and reachable nodes does not include s. */
+  single_refinement_step : function(end, reachability_graph) { 
+    var new_graph = {};
     for (s in reachability_graph) {
-      reachable_nodes = reachability_graph[s];
-      reachable_nodes.forEach(function (node) {
-        var box_coords = coordinate_functions.box_coordinates_from_endpoints(node, end);
-      }, this);
+      var reachable_nodes = this.refine(end, reachability_graph[s], new_graph);
+      new_graph[s] = reachability_graph[s].filter(function (node) { return !reachable_nodes[node]; });
     }
-  }
+    return new_graph;
+  },
+  test_graph : {
+    "0,0" : [[1,1]],
+    "1,1" : [[2,2],[3,3],[4,4],[5,5]],
+    "2,2" : [[3,3],[4,4],[5,5]],
+    "3,3" : [[4,4],[5,5]],
+    "4,4" : [[5,5]],
+    "5,5" : []
+  },
 };
 
 /**
@@ -289,31 +241,6 @@ var common_strategy_methods = {
       });
     });
     return closest_fruit;
-  },
-  /**
-   * Given coordinates of some bounding box we return
-   * the locations of all the fruits that will fit in that box.
-   * @param top_left_endpoint Top left endpoint of the bounding box.
-   * @param bottom_right_endpoint Bottom right endpoint of the bounding box.
-   * @return {Array} List of fruit locations that fit in that box.
-   */
-  fruits_in_a_box : function (top_left_endpoint, bottom_right_endpoint) {
-    var left_col_limit = top_left_endpoint[0], right_col_limit = bottom_right_endpoint[0];
-    var top_row_limit = top_left_endpoint[1], bottom_row_limit = bottom_right_endpoint[1];
-    var fruit_stash = this.fruit_stash;
-    return fruit_stash.fruits.reduce(function (acc, fruit) {
-      var locations = fruit_stash[fruit].filter(function (fruit_location) {
-        /* check column limits */
-        if (fruit_location[0] >= left_col_limit && fruit_location[0] <= right_col_limit) {
-          /* check row limits */
-          if (fruit_location[1] <= top_row_limit && fruit_location[1] >= bottom_row_limit) {
-            return true;
-          }
-        }
-        return false;
-      });
-      return acc.concat(locations);
-    }, []);
   }
 };
 

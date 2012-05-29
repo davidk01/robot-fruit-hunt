@@ -32,7 +32,7 @@ var coordinate_functions = {
   box_coordinates_from_endpoints : function (start, end) {
     var col_delta = end[0] - start[0], row_delta = end[1] - start[1];
     var orientation = col_delta * row_delta;
-    if (orientation === 0) { /* degenerate case of horizontal or vertical line */
+    if (orientation === 0) { /* degenerate case of horizontal or vertical line or a single point*/
       if (col_delta === 0) { /* vertical line, config 7) or 8)*/
         return row_delta > 0 ? {left : start, right : end} : {left : end, right : start};
       } else { /* row_delta === 0 : horizontal line, config 5) or 6) */
@@ -161,11 +161,12 @@ var common_strategy_methods = {
       return updated_locations.length > 0;
     }, this);
   },
-  /*
-   go through the board and save all the fruit locations.
-   also, while making a pass through the board we also keep
-   track of how many fruits of that type we would need to
-   get in order to win that category.
+  /**
+   * go through the board and save all the fruit locations.
+   * also, while making a pass through the board we keep
+   * track of how many fruits of that type we would need to
+   * get in order to win that category.
+   * @param board Column major grid that contains cells with fruits.
    */
   find_fruits_and_compute_win_counts : function (board) {
     board.forEach(function (column, col_index) {
@@ -185,11 +186,14 @@ var common_strategy_methods = {
       }, this);
     }, this);
   },
-  /*
-   the game has a predefined set of constants for directional movement.
-   so given where we want to move and some other location this function
-   returns one of the direction specifiers that will get us closer to
-   the desired location.
+  /**
+   * The game has a predefined set of constants for directional movement.
+   * So given where we want to move and some other location this function
+   * returns one of the direction specifiers that will get us closer to
+   * the desired location.
+   * @param move_location Where we want to move.
+   * @param my_location Where we want to move from.
+   * @return {*}
    */
   calculate_move_direction : function (move_location, my_location) {
     // figure out if we need to move left or right
@@ -203,10 +207,11 @@ var common_strategy_methods = {
       return y_delta > 0 ? SOUTH : NORTH;
     }
   },
-  /*
-   convenience function for updating fruit locations. this
-   should be called on every turn of the game to update the
-   locations of the fruits.
+  /**
+   * Convenience function for updating fruit locations. This
+   * should be called on every turn of the game to update the
+   * locations of the fruits.
+   * @param board Column major grid that contains cells with fruit types.
    */
   init_or_update_fruit_locations : function (board) {
     if (!this.init) {
@@ -216,11 +221,14 @@ var common_strategy_methods = {
       this.update_fruits(board);
     }
   },
-  /*
-   finds the closest fruit to a given location. will throw
-   an exception or return null if fruit_stash and fruit_stash.fruits
-   don't contain anything. so this function will only return sensible
-   results if our fruit_stash is sane.
+  /**
+   * Finds the closest fruit to a given location. Will throw
+   * an exception or return null if fruit_stash and fruit_stash.fruits
+   * don't contain anything. So this function will only return sensible
+   * results if our fruit_stash is sane.
+   * @param loc The location that is going to serve as the center of our search
+   * for the closest fruit.
+   * @return {*} The location of the closest fruit. Note that this is not unique.
    */
   find_closest_fruit : function (loc) {
     var closest_fruit = null, closest_distance = Infinity, fruit_stash = this.fruit_stash;
@@ -235,25 +243,30 @@ var common_strategy_methods = {
     });
     return closest_fruit;
   },
-  /* given coordinates of some bounding box we return
-  the locations of all the fruits that will fit in that box.
+  /**
+   * Given coordinates of some bounding box we return
+   * the locations of all the fruits that will fit in that box.
+   * @param top_left_endpoint Top left endpoint of the bounding box.
+   * @param bottom_right_endpoint Bottom right endpoint of the bounding box.
+   * @return {Array} List of fruit locations that fit in that box.
    */
   fruits_in_a_box : function (top_left_endpoint, bottom_right_endpoint) {
     var left_col_limit = top_left_endpoint[0], right_col_limit = bottom_right_endpoint[0];
     var top_row_limit = top_left_endpoint[1], bottom_row_limit = bottom_right_endpoint[1];
-    var fruit_stash = this.fruit_stash, potential_fruit_locations = [];
-    fruit_stash.fruits.forEach(function (fruit) {
-      fruit_stash[fruit].filter(function (fruit_location) {
+    var fruit_stash = this.fruit_stash;
+    return fruit_stash.fruits.reduce(function (acc, fruit) {
+      var locations = fruit_stash[fruit].filter(function (fruit_location) {
         /* check column limits */
         if (fruit_location[0] >= left_col_limit && fruit_location[0] <= right_col_limit) {
           /* check row limits */
           if (fruit_location[1] <= top_row_limit && fruit_location[1] >= bottom_row_limit) {
-            potential_fruit_locations.push(fruit_location);
+            return true;
           }
         }
+        return false;
       });
-    });
-    return potential_fruit_locations;
+      return acc.concat(locations);
+    }, []);
   }
 };
 

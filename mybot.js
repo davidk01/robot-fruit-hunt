@@ -65,9 +65,8 @@ var coordinate_functions = {
    * @returns {Array} The list of nodes contained in the bounding box
    */
   nodes_in_box : function(box_coords, nodes, extra_filter) {
-    if (!extra_filter) {
-      extra_filter = function (node) { return true; };
-    }
+    /* extra_filter defaults to returning true if no filtering function is passed in */
+    extra_filter = typeof extra_filter === 'undefined' ? function (node) { return true; } : extra_filter;
     var left_col_limit = box_coords.left[0], right_col_limit = box_coords.right[0];
     var top_row_limit = box_coords.left[1], bottom_row_limit = box_coords.right[1];
     return nodes.filter(function (node) {
@@ -98,6 +97,18 @@ var path_construction = {
       a[k] = b[k];
     }
   },
+  extend_partial_path : function (partial_path, path_graph) {
+    var possible_extensions = path_graph[partial_path[partial_path.length - 1]];
+    if (possible_extensions.length === 0) {
+      return [partial_path];
+    }
+    return possible_extensions.map(function (node) {
+      return partial_path.concat([node]);
+    });
+  },
+  extract_paths : function (start, path_graph) {
+    var partial_paths = [[start]];
+  },
   /**
    * Given a start and end points along with nodes we want to pass through
    * we construct the paths that only pass through those nodes and no more.
@@ -110,7 +121,11 @@ var path_construction = {
    * @returns {Array} The set of paths given as a set of ordered points.
    */
   construct_restricted_paths : function(start, end, nodes) {
-    /* construct a reachability graph and refine it */
+    /* if nodes does not include the end point then we need to add it */
+    if (!nodes.some(function (node) { return node[0] === end[0] && node[1] === end[1]; })) {
+      nodes.push(end);
+    }
+    /* construct a partial reachability graph and refine it until we have the reachability graph */
     var initial_graph = {}; initial_graph[start] = nodes;
     var refined_data = this.single_refinement_step(end, nodes);
     var refined_graph = refined_data.graph;
@@ -192,7 +207,8 @@ var common_strategy_methods = {
    * go through the board and save all the fruit locations.
    * also, while making a pass through the board we keep
    * track of how many fruits of that type we would need to
-   * get in order to win that category.
+   * get in order to win that category. also, compute the transpose
+   * mapping so that we know what fruit each node maps to.
    * @param board Column major grid that contains cells with fruits.
    */
   find_fruits_and_compute_win_counts : function (board) {
@@ -201,6 +217,7 @@ var common_strategy_methods = {
         var fruit_location = [col_index, row_index], fruit_locations;
         if (fruit_type > 0) {
           fruit_locations = this.fruit_stash[fruit_type];
+          this.node_to_fruit_mapping[fruit_location] = fruit_type;
           if (fruit_locations) {
             fruit_locations.push(fruit_location);
           } else {
@@ -287,44 +304,45 @@ function create_strategy_instance(Constructor) {
   instance.init = false;
   instance.fruit_stash = {fruits : []};
   instance.win_counts = {};
+  instance.node_to_fruit_mapping = {};
   /* return the new instance. */
   return instance;
 }
 
-/**
- * Constructor for a greedy strategy that tries to ignore
- * fruits that are obviously won or lost.
- * @constructor
- */
-function Still_Pretty_Greedy() {
-  /*
-   we want to get rid of fruit categories that we have no hope of winning or
-   have already won. we have won a category if we have more than half of the fruit
-   in that category and we have no hope of winning if the enemy can make the same claim.
-   */
-  this.filter_out_won_or_lost_categories = function () {
-    return this.fruit_stash.fruits.filter(function (fruit) {
-      var win_count = this.win_counts[fruit];
-      var my_count = get_my_item_count(fruit), enemy_count = get_opponent_item_count(fruit);
-      var total_collected = my_count + enemy_count;
-      var keep = !(enemy_count >= win_count || total_collected === (2 * win_count - 1));
-      return keep;
-    }, this);
+function Rare_Fruit_First() {
+  this.action_sequence = [];
+  
+  /* given a starting and ending point this will construct the path graph
+  from start to end. the assumption is that the end point
+  */
+  this.construct_path_graph = function (start, end) {
+    /* find all the fruits that are in the box defined by start and end */
+    var box_coords = coordinate_functions.box_coordinates_from_endpoints(start, end);
+    var fruit_stash = this.fruit_stash;
+    var all_fruit_locations = fruit_stash.fruits.reduce(function (acc, fruit) {
+      return acc.concat(fruit_stash[fruit]);
+    }, []);
+    var filter = function (loc) { return loc[0] !== start[0] || loc[1] !== start[1]; };
+    var fruits_in_box = coordinate_functions.nodes_in_box(box_coords, all_fruit_locations, filter);
+    /* construct path graph */
+    return path_construction.construct_restricted_paths(start, end, fruits_in_box);
   };
-  /*
-   update fruit locations, filter out won/lost categories, find the closest
-   fruit and try to go to it.
-   */
-  this.make_move = function (board) {
-    this.init_or_update_fruit_locations(board);
-    this.fruit_stash.fruits = this.filter_out_won_or_lost_categories();
-    var my_loc = [get_my_x(), get_my_y()];
-    if (this.fruit_stash.fruits.length === 0) {
-      return PASS;
+  /* given a path graph extract the path that will get us the most bang
+  for the buck while we are making our way to a rare fruit. start node should
+  be empty since presumably we went there to pick up fruit and are trying to chart
+  a path to the next rare fruit. all the information we need to construct the path
+  is contained in path_graph.
+  */
+  this.extract_paths_from_graph = function (start_node, path_graph) {
+    var next_node_set = path_graph[start_node];
+    while (next_node_set.length > 0) {
+      /* look at the possible nodes we can go to and pick one with a rare fruit */
     }
-    var fruit_loc = this.find_closest_fruit(my_loc);
-    var move_direction = this.calculate_move_direction(fruit_loc, my_loc);
-    return move_direction === undefined ? TAKE : move_direction;
+  };
+  this.make_move = function (board) {
+    /* update fruit list and fruit locations */
+    this.init_or_update_fruit_locations(board);
+    /* find a fruit with a low win count and chart a path to it */
   };
 }
 
@@ -334,7 +352,7 @@ var strategy;
  * strategy instance every time this function is called.
  */
 function new_game() {
-  strategy = create_strategy_instance(Still_Pretty_Greedy);
+  strategy = create_strategy_instance(Rare_Fruit_First);
 }
 
 /**

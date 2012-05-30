@@ -106,8 +106,25 @@ var path_construction = {
       return partial_path.concat([node]);
     });
   },
-  extract_paths : function (start, path_graph) {
-    var partial_paths = [[start]];
+  extract_paths : function (partial_paths, path_graph) {
+    var need_extension = [], done = [];
+    /* see if we were able to extend anything */
+    partial_paths.forEach(function (partial_path) {
+      var extensions = this.extend_partial_path(partial_path, path_graph);
+      if (extensions[0].length === partial_path.length) {
+        done.push(partial_path);
+      } else {
+        extensions.forEach(function (extension) {
+          need_extension.push(extension);
+        });
+      }
+    }, this);
+    /* base case */
+    if (need_extension.length === 0) {
+      return done;
+    }
+    /* recursive case */
+    return done.concat(extract_paths(need_extension, path_graph));
   },
   /**
    * Given a start and end points along with nodes we want to pass through

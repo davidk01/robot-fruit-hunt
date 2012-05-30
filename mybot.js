@@ -89,6 +89,10 @@ var coordinate_functions = {
  * @type {Object}
  */
 var path_construction = {
+  /* utility for merging two objects.
+  whatever is in b will override whatever is in a
+  if one key exists in both objects.
+  */
   merge : function (a, b) {
     for (var k in b) {
       a[k] = b[k];
@@ -101,6 +105,8 @@ var path_construction = {
    * @param end The terminal point for the set of paths.
    * @param nodes The set of points we want our paths to go through. The assumption
    * is that these nodes are contained in the box defined by the start and end points.
+   * This array should contain all accessible nodes except the starting point. Accessible
+   * means that the end point should be included in this array.
    * @returns {Array} The set of paths given as a set of ordered points.
    */
   construct_restricted_paths : function(start, end, nodes) {
@@ -120,6 +126,11 @@ var path_construction = {
     }, this).forEach(function (graph) { this.merge(initial_graph, graph); }, this);
     return initial_graph;
   },
+  /*
+  Given a destination point and a set of already reachable nodes we refine
+  it so that all nodes reachable in two steps disappear from this list and instead
+  go into a seperate graph.
+  */
   single_refinement_step : function(end, reachable_nodes) {
     var cache_hit;
     if (cache_hit = this.single_refinement_step_cache[[end, reachable_nodes]]) {
@@ -131,6 +142,9 @@ var path_construction = {
     var refined_data = {filtered_nodes : filtered_nodes, graph : refinement.refined_graph};
     return this.single_refinement_step_cache[[end, reachable_nodes]] = refined_data;
   },
+  /*
+  this is where most of the work for refinement happens. hard to explain without drawing a picture
+  */
   refine : function (end, nodes) {
     var reachable_nodes = {}, accumulator = {};
     nodes.forEach(function (node) {
@@ -144,6 +158,7 @@ var path_construction = {
     });
     return {reachable_in_two_steps : reachable_nodes, refined_graph : accumulator};
   },
+  /* used to cache computations carried out by single_refinement_step */
   single_refinement_step_cache : {}
 };
 

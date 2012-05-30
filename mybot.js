@@ -105,8 +105,7 @@ var path_construction = {
    */
   construct_restricted_paths : function(start, end, nodes) {
     /* construct a reachability graph and refine it */
-    var initial_graph = {};
-    initial_graph[start] = nodes;
+    var initial_graph = {}; initial_graph[start] = nodes;
     var refined_data = this.single_refinement_step(end, nodes);
     var refined_graph = refined_data.graph;
     var need_further_refinement = Object.keys(refined_graph);
@@ -136,7 +135,7 @@ var path_construction = {
     var reachable_nodes = {}, accumulator = {};
     nodes.forEach(function (node) {
       var box_coords = coordinate_functions.box_coordinates_from_endpoints(node, end);
-      var filter = function (n) { return n[0] !== node[0] && n[1] !== node[1]; };
+      var filter = function (n) { return n[0] !== node[0] || n[1] !== node[1]; };
       var refined_nodes = coordinate_functions.nodes_in_box(box_coords, nodes, filter);
       if (refined_nodes.length > 0) {
         refined_nodes.forEach(function (node) { reachable_nodes[node] = true; });

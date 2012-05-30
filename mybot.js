@@ -99,7 +99,7 @@ var path_construction = {
   },
   extend_partial_path : function (partial_path, path_graph) {
     var possible_extensions = path_graph[partial_path[partial_path.length - 1]];
-    if (possible_extensions.length === 0) {
+    if (!possible_extensions) {
       return [partial_path];
     }
     return possible_extensions.map(function (node) {
@@ -124,7 +124,7 @@ var path_construction = {
       return done;
     }
     /* recursive case */
-    return done.concat(extract_paths(need_extension, path_graph));
+    return done.concat(this.extract_paths(need_extension, path_graph));
   },
   /**
    * Given a start and end points along with nodes we want to pass through

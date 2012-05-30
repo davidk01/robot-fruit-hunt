@@ -107,20 +107,33 @@ var path_construction = {
     /* construct a reachability graph and refine it */
     var initial_graph = {};
     initial_graph[start] = nodes;
-    var refined_graph = this.single_refinement_step(end, initial_graph);
+    var refined_data = this.single_refinement_step(end, nodes);
+    var refined_graph = refined_data.graph;
     var need_further_refinement = Object.keys(refined_graph);
     /* base case */
     if (need_further_refinement.length === 0) {
       return initial_graph;
     }
     /* recursive case */
+    initial_graph[start] = refined_data.filtered_nodes;
     need_further_refinement.map(function (node) {
       return this.construct_restricted_paths(node, end, refined_graph[node]);
     }, this).forEach(function (graph) { this.merge(initial_graph, graph); }, this);
     return initial_graph;
   },
-  refine : function (end, nodes, accumulator) {
-    var reachable_nodes = {};
+  single_refinement_step : function(end, reachable_nodes) {
+    var cache_hit;
+    if (cache_hit = this.single_refinement_step_cache[[end, reachable_nodes]]) {
+      return cache_hit;
+    }
+    var refinement = this.refine(end, reachable_nodes);
+    var reachable_in_two_steps = refinement.reachable_in_two_steps;
+    var filtered_nodes = reachable_nodes.filter(function (node) { return !reachable_in_two_steps[node]; });
+    var refined_data = {filtered_nodes : filtered_nodes, graph : refinement.refined_graph};
+    return this.single_refinement_step_cache[[end, reachable_nodes]] = refined_data;
+  },
+  refine : function (end, nodes) {
+    var reachable_nodes = {}, accumulator = {};
     nodes.forEach(function (node) {
       var box_coords = coordinate_functions.box_coordinates_from_endpoints(node, end);
       var filter = function (n) { return n[0] !== node[0] && n[1] !== node[1]; };
@@ -130,16 +143,9 @@ var path_construction = {
         accumulator[node] = refined_nodes;
       }
     });
-    return reachable_nodes;
+    return {reachable_in_two_steps : reachable_nodes, refined_graph : accumulator};
   },
-  single_refinement_step : function(end, reachability_graph) { 
-    var new_graph = {};
-    for (s in reachability_graph) {
-      var reachable_nodes = this.refine(end, reachability_graph[s], new_graph);
-      reachability_graph[s] = reachability_graph[s].filter(function (node) { return !reachable_nodes[node]; });
-    }
-    return new_graph;
-  }
+  single_refinement_step_cache : {}
 };
 
 /**

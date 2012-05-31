@@ -231,6 +231,7 @@ var common_strategy_methods = {
       this.fruit_stash[fruit] = updated_locations;
       return updated_locations.length > 0;
     }, this);
+    this.sort_fruits();
   },
   /**
    * go through the board and save all the fruit locations.
@@ -262,8 +263,7 @@ var common_strategy_methods = {
     this.sort_fruits();
   },
   /* sorting happens with respect to rarity, which is another way of
-  saying fruits that have low win count are better than ones that have
-  high counts */
+  saying fruits that have low win count are better */
   sort_fruits : function() {
     var win_counts = this.win_counts;
     this.fruit_stash.fruits.sort(function (a,b) { return win_counts[a] - win_counts[b]; });
@@ -383,7 +383,20 @@ function Rare_Fruit_First() {
     var best_path = this.pick_best_path(paths);
   };
   this.pick_best_path : function (paths) {
-  }
+    /* turn each path into a hash map where we have fruit -> fruit count */
+    var fruit_counts = paths.map(function (path) { 
+      /* initialize the fruit count for this path */
+      var fruit_count = {};
+      this.fruit_stash.fruits.forEach(function (fruit) { fruit_count[fruit] = 0; });
+      /* count the fruits on the path */
+      path.forEach(function (node) {
+        fruit_count[this.node_to_fruit_mapping[node]] += 1;
+      }, this);
+      return [path, fruit_count];
+    }, this).sort(function (p1, p2) {
+      
+    });
+  };
 }
 
 var strategy;

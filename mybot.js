@@ -97,6 +97,8 @@ var path_construction = {
       a[k] = b[k];
     }
   },
+  /* take an already constructed partial path and extend it forward 1 step if possible.
+  if extension is not possible then return the path wrapped in an array. */
   extend_partial_path : function (partial_path, path_graph) {
     var possible_extensions = path_graph[partial_path[partial_path.length - 1]];
     if (!possible_extensions) {
@@ -106,9 +108,13 @@ var path_construction = {
       return partial_path.concat([node]);
     });
   },
+  /* given a graph that represents all possible paths from one endpoint to
+  another with certain restrictions extract a list of possible paths. partial_paths
+  should be seeded with at least one partial path to begin with. */
   extract_paths : function (partial_paths, path_graph) {
     var need_extension = [], done = [];
-    /* see if we were able to extend anything */
+    /* see if we were able to extend anything and buffer those for potential re-extension.
+    save everything else as done. */
     partial_paths.forEach(function (partial_path) {
       var extensions = this.extend_partial_path(partial_path, path_graph);
       if (extensions[0].length === partial_path.length) {
@@ -157,6 +163,12 @@ var path_construction = {
       return this.construct_restricted_paths(node, end, refined_graph[node]);
     }, this).forEach(function (graph) { this.merge(initial_graph, graph); }, this);
     return initial_graph;
+  },
+  /* given starting and ending points and a set of restriction create the list of paths */
+  possible_paths : function (start, end, nodes) {
+    /* extract the reachability graph */
+    var reachability_graph = this.construct_restricted_paths(start, end, nodes);
+    return this.extract_paths([[start]], reachability_graph);
   },
   /*
   Given a destination point and a set of already reachable nodes we refine
@@ -246,6 +258,15 @@ var common_strategy_methods = {
         }
       }, this);
     }, this);
+    /* sort the fruits according to rarity */
+    this.sort_fruits();
+  },
+  /* sorting happens with respect to rarity, which is another way of
+  saying fruits that have low win count are better than ones that have
+  high counts */
+  sort_fruits : function() {
+    var win_counts = this.win_counts;
+    this.fruit_stash.fruits.sort(function (a,b) { return win_counts[a] - win_counts[b]; });
   },
   /**
    * The game has a predefined set of constants for directional movement.
@@ -327,12 +348,10 @@ function create_strategy_instance(Constructor) {
 }
 
 function Rare_Fruit_First() {
-  this.action_sequence = [];
-  
-  /* given a starting and ending point this will construct the path graph
-  from start to end. the assumption is that the end point
+  /* given a starting and ending point we use the methods in path_construction to
+  construct a list of possible paths from start to end.
   */
-  this.construct_path_graph = function (start, end) {
+  this.get_paths = function (start, end) {
     /* find all the fruits that are in the box defined by start and end */
     var box_coords = coordinate_functions.box_coordinates_from_endpoints(start, end);
     var fruit_stash = this.fruit_stash;
@@ -342,25 +361,29 @@ function Rare_Fruit_First() {
     var filter = function (loc) { return loc[0] !== start[0] || loc[1] !== start[1]; };
     var fruits_in_box = coordinate_functions.nodes_in_box(box_coords, all_fruit_locations, filter);
     /* construct path graph */
-    return path_construction.construct_restricted_paths(start, end, fruits_in_box);
-  };
-  /* given a path graph extract the path that will get us the most bang
-  for the buck while we are making our way to a rare fruit. start node should
-  be empty since presumably we went there to pick up fruit and are trying to chart
-  a path to the next rare fruit. all the information we need to construct the path
-  is contained in path_graph.
-  */
-  this.extract_paths_from_graph = function (start_node, path_graph) {
-    var next_node_set = path_graph[start_node];
-    while (next_node_set.length > 0) {
-      /* look at the possible nodes we can go to and pick one with a rare fruit */
-    }
+    return path_construction.possible_paths(start, end, fruits_in_box);
   };
   this.make_move = function (board) {
     /* update fruit list and fruit locations */
     this.init_or_update_fruit_locations(board);
     /* find a fruit with a low win count and chart a path to it */
+    var win_counts = this.win_counts;
+    var rare_fruit = this.fruit_stash.fruits.reduce(function (low_win_fruit, fruit) {
+      return win_counts[low_win_fruit] <= win_counts[fruit] ? low_win_fruit : fruit;
+    });
+    /* get our current position and for the rare fruit we just found find the location closest to us */
+    var my_position = [get_my_x(), get_my_y()];
+    var rare_fruit_closest_loc = this.fruit_stash[rare_fruit].reduce(function (closest, loc) {
+      var closest_distance = coordinate_functions.manhattan_metric(my_position, closest);
+      var new_distance = coordinate_functions.manhattan_metric(my_position, loc);
+      return new_distance <= closest_distance ? loc : closest;
+    });
+    /* find all restricted paths to that location */
+    var paths = this.get_paths(my_position, rare_fruit_closest_loc);
+    var best_path = this.pick_best_path(paths);
   };
+  this.pick_best_path : function (paths) {
+  }
 }
 
 var strategy;

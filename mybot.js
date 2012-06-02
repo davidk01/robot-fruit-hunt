@@ -88,17 +88,26 @@ var coordinate_functions = {
  * @type {Object}
  */
 var path_construction = {
-  /* utility for merging two objects.
-  whatever is in b will override whatever is in a
-  if one key exists in both objects.
-  */
+  /**
+   * Merges two objects by destructively updating the first one
+   * with keys and values from the second one.
+   * @param a The first object that will be updated.
+   * @param b The object that will be merged into the first one.
+   */
   merge : function (a, b) {
     for (var k in b) {
       a[k] = b[k];
     }
   },
-  /* take an already constructed partial path and extend it forward 1 step if possible.
-  if extension is not possible then return the path wrapped in an array. */
+  /**
+   * Takes an already constructed partial path and a reachability graph
+   * and tries to extend the path forward. If extension is not possible
+   * the original path is returned wrapped in an array.
+   * @param partial_path The path we want to extend.
+   * @param path_graph The reachability graph that serves as a constraint
+   * on how a partial path can be extended.
+   * @return {*}
+   */
   extend_partial_path : function (partial_path, path_graph) {
     var possible_extensions = path_graph[partial_path[partial_path.length - 1]];
     if (!possible_extensions) {
@@ -108,9 +117,15 @@ var path_construction = {
       return partial_path.concat([node]);
     });
   },
-  /* given a graph that represents all possible paths from one endpoint to
-  another with certain restrictions extract a list of possible paths. partial_paths
-  should be seeded with at least one partial path to begin with. */
+  /**
+   * Given a set of partial paths and a reachability graph that serves as a constraint
+   * for path extension we return the set of all possible extensions of the initial
+   * set of partial paths.
+   * @param partial_paths The partial paths that serve as seeds for extension.
+   * @param path_graph The reachability graph that serves as a set of constraints
+   * for path extension.
+   * @return {Array}
+   */
   extract_paths : function (partial_paths, path_graph) {
     var need_extension = [], done = [];
     /* see if we were able to extend anything and buffer those for potential re-extension.
@@ -164,19 +179,32 @@ var path_construction = {
     }, this).forEach(function (graph) { this.merge(initial_graph, graph); }, this);
     return initial_graph;
   },
-  /* given starting and ending points and a set of restriction create the list of paths */
+  /**
+   * Given a starting node and an ending node and a set of nodes that paths need to pass
+   * through this function returns the set of all possible paths that satisfy those
+   * constraints.
+   * @param start Our starting point.
+   * @param end Our destination.
+   * @param nodes The set of nodes we want to pass through if possible.
+   * @return {Array}
+   */
   possible_paths : function (start, end, nodes) {
     /* extract the reachability graph */
     var reachability_graph = this.construct_restricted_paths(start, end, nodes);
     return this.extract_paths([[start]], reachability_graph);
   },
-  /*
-  Given a destination point and a set of already reachable nodes we refine
-  it so that all nodes reachable in two steps disappear from this list and instead
-  go into a seperate graph.
-  */
+  /**
+   * Given a partially constructed set of data that serves as a proxy for
+   * a reachability graph we perform a single refinement step to increase
+   * the granularity of the reachability graph by splitting the set of
+   * reachable nodes into two sets if possible.
+   * @param end Our destination node.
+   * @param reachable_nodes A set of partially constructed reachable nodes.
+   * @return {*}
+   */
   single_refinement_step : function(end, reachable_nodes) {
     var cache_hit;
+    //noinspection AssignmentResultUsedJS
     if (cache_hit = this.single_refinement_step_cache[[end, reachable_nodes]]) {
       return cache_hit;
     }
@@ -186,9 +214,12 @@ var path_construction = {
     var refined_data = {filtered_nodes : filtered_nodes, graph : refinement.refined_graph};
     return this.single_refinement_step_cache[[end, reachable_nodes]] = refined_data;
   },
-  /*
-  this is where most of the work for refinement happens. hard to explain without drawing a picture
-  */
+  /**
+   * Keeps refining the set of nodes until everything is reachable in one step.
+   * @param end Where we want to end up.
+   * @param nodes The initial set of nodes we want to pass through.
+   * @return {Object}
+   */
   refine : function (end, nodes) {
     var reachable_nodes = {}, accumulator = {};
     nodes.forEach(function (node) {
@@ -202,7 +233,9 @@ var path_construction = {
     });
     return {reachable_in_two_steps : reachable_nodes, refined_graph : accumulator};
   },
-  /* used to cache computations carried out by single_refinement_step */
+  /**
+   * Caches computations of refinement.
+   */
   single_refinement_step_cache : {}
 };
 
@@ -234,10 +267,10 @@ var common_strategy_methods = {
     this.sort_fruits();
   },
   /**
-   * go through the board and save all the fruit locations.
-   * also, while making a pass through the board we keep
+   * Go through the board and save all the fruit locations.
+   * Also, while making a pass through the board we keep
    * track of how many fruits of that type we would need to
-   * get in order to win that category. also, compute the transpose
+   * get in order to win that category. Also, compute the transpose
    * mapping so that we know what fruit each node maps to.
    * @param board Column major grid that contains cells with fruits.
    */
@@ -262,8 +295,9 @@ var common_strategy_methods = {
     /* sort the fruits according to rarity */
     this.sort_fruits();
   },
-  /* sorting happens with respect to rarity, which is another way of
-  saying fruits that have low win count are better */
+  /**
+   * Sorts the available fruits according to rarity.
+   */
   sort_fruits : function() {
     var win_counts = this.win_counts;
     this.fruit_stash.fruits.sort(function (a,b) { return win_counts[a] - win_counts[b]; });
@@ -380,11 +414,14 @@ function Rare_Fruit_First() {
     });
     /* find all restricted paths to that location */
     var paths = this.get_paths(my_position, rare_fruit_closest_loc);
+    /* pick the best path out of those */
     var best_path = this.pick_best_path(paths);
+    console.log("stop");
   };
-  this.pick_best_path : function (paths) {
+  this.pick_best_path = function (paths) {
+    var fruits = this.fruit_stash.fruits;
     /* turn each path into a hash map where we have fruit -> fruit count */
-    var fruit_counts = paths.map(function (path) { 
+    paths.map(function (path) {
       /* initialize the fruit count for this path */
       var fruit_count = {};
       this.fruit_stash.fruits.forEach(function (fruit) { fruit_count[fruit] = 0; });
@@ -394,8 +431,13 @@ function Rare_Fruit_First() {
       }, this);
       return [path, fruit_count];
     }, this).sort(function (p1, p2) {
-      
+        var scores = fruits.map(function (fruit) { return p2[1][fruit] - p1[1][fruit]; });
+        if (scores.some(function (order) { return order <= 0; })) {
+          return -1;
+        }
+        return 1;
     });
+    return paths[0];
   };
 }
 
@@ -405,7 +447,10 @@ var strategy;
  * strategy instance every time this function is called.
  */
 function new_game() {
+  /* initialize new strategy instance */
   strategy = create_strategy_instance(Rare_Fruit_First);
+  /* reset refinement cache */
+  path_construction.single_refinement_step_cache = {};
 }
 
 /**

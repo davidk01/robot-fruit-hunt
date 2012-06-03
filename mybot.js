@@ -438,12 +438,18 @@ function Rare_Fruit_First() {
     /* find all restricted paths to that location */
     var paths = this.get_paths(my_position, rare_fruit_closest_loc);
     /* pick the best path out of those */
-    var best_path = this.pick_shortest_path(paths);
+    var best_path = this.pick_longest_path(paths);
     this.planner.path = best_path;
     return this.planner.next_move(board, my_position[0], my_position[1]);
   };
-  this.pick_shortest_path = function (paths) {
-    paths.sort(function (p1, p2) { return p1.length - p2.length; });
+  this.pick_longest_path = function (paths) {
+    var enemy = [get_opponent_x(), get_opponent_y()];
+    paths.sort(function (p1, p2) {
+      /* add a penalty to paths whose destination is close to the enemy */
+      var p1penalty = coordinate_functions.manhattan_metric(enemy, p1[p1.length - 1]) < 3 ? -2 : 0;
+      var p2penalty = coordinate_functions.manhattan_metric(enemy, p2[p2.length - 1]) < 3 ? -2 : 0;
+      return (p1.length + p1penalty) - (p2.length + p2penalty);
+    });
     return paths[0];
   };
 }

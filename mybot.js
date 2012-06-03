@@ -381,7 +381,20 @@ function create_strategy_instance(Constructor) {
   return instance;
 }
 
+function Planner(path) {
+  this.path = path;
+  this.next_move = function (board, current_x, current_y) {
+    if (this.path[0][0] === current_x && this.path[0][1] === current_y) {
+      var pos = this.path.shift();
+      if (board[pos[0]][pos[1]] > 0) {
+        return TAKE;
+      }
+    }
+    return common_strategy_methods.calculate_move_direction(this.path[0], [current_x, current_y]);
+  };
+}
 function Rare_Fruit_First() {
+  this.planner = new Planner([]);
   /* given a starting and ending point we use the methods in path_construction to
   construct a list of possible paths from start to end.
   */
@@ -400,13 +413,23 @@ function Rare_Fruit_First() {
   this.make_move = function (board) {
     /* update fruit list and fruit locations */
     this.init_or_update_fruit_locations(board);
+    var my_position = [get_my_x(), get_my_y()];
+    /* verify that our destination still contains fruit. if it doesn't
+    we need to invalidate the planner.
+     */
+    if (this.planner.path.length > 0) {
+      var destination = this.planner.path[this.planner.path.length - 1];
+      if (board[destination[0]][destination[1]] > 0) {
+        return this.planner.next_move(board, my_position[0], my_position[1]);
+      }
+    }
+    /* otherwise our planner is out of sync so we need to replan */
     /* find a fruit with a low win count and chart a path to it */
     var win_counts = this.win_counts;
     var rare_fruit = this.fruit_stash.fruits.reduce(function (low_win_fruit, fruit) {
       return win_counts[low_win_fruit] <= win_counts[fruit] ? low_win_fruit : fruit;
     });
     /* get our current position and for the rare fruit we just found find the location closest to us */
-    var my_position = [get_my_x(), get_my_y()];
     var rare_fruit_closest_loc = this.fruit_stash[rare_fruit].reduce(function (closest, loc) {
       var closest_distance = coordinate_functions.manhattan_metric(my_position, closest);
       var new_distance = coordinate_functions.manhattan_metric(my_position, loc);
@@ -416,7 +439,8 @@ function Rare_Fruit_First() {
     var paths = this.get_paths(my_position, rare_fruit_closest_loc);
     /* pick the best path out of those */
     var best_path = this.pick_best_path(paths);
-    console.log("stop");
+    this.planner.path = best_path;
+    return this.planner.next_move(board, my_position[0], my_position[1]);
   };
   this.pick_best_path = function (paths) {
     var fruits = this.fruit_stash.fruits;

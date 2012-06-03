@@ -454,6 +454,7 @@ function Rare_Fruit_First() {
       }
       return cache[p2] - cache[p1];
     });
+    return paths[0];
   };
   this.pick_best_path = function (paths) {
     var fruits = this.fruit_stash.fruits;

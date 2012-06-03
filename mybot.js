@@ -336,28 +336,6 @@ var common_strategy_methods = {
     } else {
       this.update_fruits(board);
     }
-  },
-  /**
-   * Finds the closest fruit to a given location. Will throw
-   * an exception or return null if fruit_stash and fruit_stash.fruits
-   * don't contain anything. So this function will only return sensible
-   * results if our fruit_stash is sane.
-   * @param loc The location that is going to serve as the center of our search
-   * for the closest fruit.
-   * @return {*} The location of the closest fruit. Note that this is not unique.
-   */
-  find_closest_fruit : function (loc) {
-    var closest_fruit = null, closest_distance = Infinity, fruit_stash = this.fruit_stash;
-    fruit_stash.fruits.forEach(function (fruit) {
-      fruit_stash[fruit].forEach(function (fruit_loc) {
-        var distance = coordinate_functions.manhattan_metric(loc, fruit_loc);
-        if (distance <= closest_distance) {
-          closest_distance = distance;
-          closest_fruit = fruit_loc;
-        }
-      });
-    });
-    return closest_fruit;
   }
 };
 
@@ -433,28 +411,21 @@ function Rare_Fruit_First() {
     /* find all restricted paths to that location */
     var paths = this.get_paths(my_position);
     /* pick the best path out of those */
-    var best_path = this.pick_best_path(paths);
+    var best_path = this.highest_rarity_score(paths);
     this.planner.path = best_path;
     return this.planner.next_move(board, my_position[0], my_position[1]);
   };
-  this.pick_best_path = function (paths) {
-    var fruits = this.fruit_stash.fruits;
-    /* turn each path into a hash map where we have fruit -> fruit count */
-    paths.map(function (path) {
-      /* initialize the fruit count for this path */
-      var fruit_count = {};
-      this.fruit_stash.fruits.forEach(function (fruit) { fruit_count[fruit] = 0; });
-      /* count the fruits on the path */
-      path.forEach(function (node) {
-        fruit_count[this.node_to_fruit_mapping[node]] += 1;
-      }, this);
-      return [path, fruit_count];
-    }, this).sort(function (p1, p2) {
-        var scores = fruits.map(function (fruit) { return p2[1][fruit] - p1[1][fruit]; });
-        if (scores.some(function (order) { return order <= 0; })) {
-          return -1;
-        }
-        return 1;
+  this.highest_rarity_score = function (paths) {
+    var cache = {};
+    var rarity = this.node_to_fruit_mapping;
+    paths.sort(function (p1, p2) {
+      if (!cache[p1]) {
+        cache[p1] = p1.reduce(function (acc, node) { return acc + (1 / rarity[node]); }, 0);
+      }
+      if (!cache[p2]) {
+        cache[p2] = p2.reduce(function (acc, node) { return acc + (1 / rarity[node]); }, 0);
+      }
+      return cache[p2] - cache[p1];
     });
     return paths[0];
   };

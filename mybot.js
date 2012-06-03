@@ -438,9 +438,22 @@ function Rare_Fruit_First() {
     /* find all restricted paths to that location */
     var paths = this.get_paths(my_position, rare_fruit_closest_loc);
     /* pick the best path out of those */
-    var best_path = this.pick_best_path(paths);
+    var best_path = this.pick_shortest_path_with_rarity_count(paths);
     this.planner.path = best_path;
     return this.planner.next_move(board, my_position[0], my_position[1]);
+  };
+  this.pick_shortest_path_with_rarity_count = function (paths) {
+    var cache = {};
+    var node_to_fruit_mapping = this.node_to_fruit_mapping;
+    paths.sort(function (p1, p2) {
+      if (!cache[p1]) {
+        cache[p1] = p1.reduce(function (acc, node) { return 1 + (1 / node_to_fruit_mapping[node]); }, 0);
+      }
+      if (!cache[p2]) {
+        cache[p2] = p2.reduce(function (acc, node) { return 1 + (1 / node_to_fruit_mapping[node]); }, 0);
+      }
+      return cache[p2] - cache[p1];
+    });
   };
   this.pick_best_path = function (paths) {
     var fruits = this.fruit_stash.fruits;

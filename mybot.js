@@ -446,8 +446,8 @@ function Rare_Fruit_First() {
     var enemy = [get_opponent_x(), get_opponent_y()];
     paths.sort(function (p1, p2) {
       /* add a penalty to paths whose destination is close to the enemy */
-      var p1penalty = coordinate_functions.manhattan_metric(enemy, p1[p1.length - 1]) < 3 ? -2 : 0;
-      var p2penalty = coordinate_functions.manhattan_metric(enemy, p2[p2.length - 1]) < 3 ? -2 : 0;
+      var p1penalty = coordinate_functions.manhattan_metric(enemy, p1[p1.length - 1]) < 4 ? -100 : 0;
+      var p2penalty = coordinate_functions.manhattan_metric(enemy, p2[p2.length - 1]) < 4 ? -100 : 0;
       return (p1.length + p1penalty) - (p2.length + p2penalty);
     });
     return paths[0];

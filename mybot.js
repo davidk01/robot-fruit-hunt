@@ -398,17 +398,21 @@ function Rare_Fruit_First() {
   /* given a starting and ending point we use the methods in path_construction to
   construct a list of possible paths from start to end.
   */
-  this.get_paths = function (start, end) {
+  this.get_paths = function (start) {
     /* find all the fruits that are in the box defined by start and end */
-    var box_coords = coordinate_functions.box_coordinates_from_endpoints(start, end);
     var fruit_stash = this.fruit_stash;
-    var all_fruit_locations = fruit_stash.fruits.reduce(function (acc, fruit) {
+    var all_paths = fruit_stash.fruits.reduce(function (acc, fruit) {
       return acc.concat(fruit_stash[fruit]);
-    }, []);
-    var filter = function (loc) { return loc[0] !== start[0] || loc[1] !== start[1]; };
-    var fruits_in_box = coordinate_functions.nodes_in_box(box_coords, all_fruit_locations, filter);
-    /* construct path graph */
-    return path_construction.possible_paths(start, end, fruits_in_box);
+    }, []).map(function (end, index, all_fruit_locations) {
+        var box_coords = coordinate_functions.box_coordinates_from_endpoints(start, end);
+        var filter = function (loc) { return loc[0] !== start[0] || loc[1] !== start[1]; };
+        var fruits_in_box = coordinate_functions.nodes_in_box(box_coords, all_fruit_locations, filter);
+        /* construct path graph */
+        return path_construction.possible_paths(start, end, fruits_in_box);
+      }).reduce(function (acc, paths) {
+        return acc.concat(paths);
+      }, []);
+    return all_paths;
   };
   this.make_move = function (board) {
     /* update fruit list and fruit locations */
@@ -426,17 +430,8 @@ function Rare_Fruit_First() {
     /* otherwise our planner is out of sync so we need to replan */
     /* find a fruit with a low win count and chart a path to it */
     var win_counts = this.win_counts;
-    var rare_fruit = this.fruit_stash.fruits.reduce(function (low_win_fruit, fruit) {
-      return win_counts[low_win_fruit] <= win_counts[fruit] ? low_win_fruit : fruit;
-    });
-    /* get our current position and for the rare fruit we just found find the location closest to us */
-    var rare_fruit_closest_loc = this.fruit_stash[rare_fruit].reduce(function (closest, loc) {
-      var closest_distance = coordinate_functions.manhattan_metric(my_position, closest);
-      var new_distance = coordinate_functions.manhattan_metric(my_position, loc);
-      return new_distance <= closest_distance ? loc : closest;
-    });
     /* find all restricted paths to that location */
-    var paths = this.get_paths(my_position, rare_fruit_closest_loc);
+    var paths = this.get_paths(my_position);
     /* pick the best path out of those */
     var best_path = this.pick_best_path(paths);
     this.planner.path = best_path;

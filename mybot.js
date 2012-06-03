@@ -452,7 +452,7 @@ function Rare_Fruit_First() {
       if (!cache[p2]) {
         cache[p2] = p2.reduce(function (acc, node) { return 1 + (1 / node_to_fruit_mapping[node]); }, 0);
       }
-      return cache[p2] - cache[p1];
+      return cache[p1] - cache[p2];
     });
     return paths[0];
   };

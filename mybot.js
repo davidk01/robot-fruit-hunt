@@ -437,10 +437,15 @@ function Rare_Fruit_First() {
     });
     /* find all restricted paths to that location */
     var paths = this.get_paths(my_position, rare_fruit_closest_loc);
-    /* pick the best path out of those */
-    var best_path = this.pick_best_path(paths);
+    /* pick out a path according to some metric */
+    var best_path = this.pick_longest_path(paths);
     this.planner.path = best_path;
     return this.planner.next_move(board, my_position[0], my_position[1]);
+  };
+  this.pick_longest_path = function (paths) {
+    "use strict";
+    paths.sort(function (p1, p2) { return p2.length - p1.length; });
+    return paths[0];
   };
   this.pick_best_path = function (paths) {
     var fruits = this.fruit_stash.fruits;

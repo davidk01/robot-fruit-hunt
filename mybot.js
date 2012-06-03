@@ -416,14 +416,21 @@ function Rare_Fruit_First() {
     return this.planner.next_move(board, my_position[0], my_position[1]);
   };
   this.highest_rarity_score = function (paths) {
+    var enemy = [get_opponent_x(), get_opponent_y()];
     var cache = {};
     var rarity = this.node_to_fruit_mapping;
     paths.sort(function (p1, p2) {
       if (!cache[p1]) {
-        cache[p1] = p1.reduce(function (acc, node) { return acc + (1 / rarity[node]); }, 0);
+        cache[p1] = p1.reduce(function (acc, node) {
+          var penalty = coordinate_functions.manhattan_metric(enemy, node) < 3 ? -100 : 0;
+          return penalty + acc + (1 / rarity[node]);
+        }, 0);
       }
       if (!cache[p2]) {
-        cache[p2] = p2.reduce(function (acc, node) { return acc + (1 / rarity[node]); }, 0);
+        cache[p2] = p2.reduce(function (acc, node) {
+          var penalty = coordinate_functions.manhattan_metric(enemy, node) < 2 ? -100 : 0;
+          return penalty + acc + (1 / rarity[node]);
+        }, 0);
       }
       return cache[p2] - cache[p1];
     });

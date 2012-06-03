@@ -446,27 +446,6 @@ function Rare_Fruit_First() {
     paths.sort(function (p1, p2) { return p1.length - p2.length; });
     return paths[0];
   };
-  this.pick_best_path = function (paths) {
-    var fruits = this.fruit_stash.fruits;
-    /* turn each path into a hash map where we have fruit -> fruit count */
-    paths.map(function (path) {
-      /* initialize the fruit count for this path */
-      var fruit_count = {};
-      this.fruit_stash.fruits.forEach(function (fruit) { fruit_count[fruit] = 0; });
-      /* count the fruits on the path */
-      path.forEach(function (node) {
-        fruit_count[this.node_to_fruit_mapping[node]] += 1;
-      }, this);
-      return [path, fruit_count];
-    }, this).sort(function (p1, p2) {
-        var scores = fruits.map(function (fruit) { return p2[1][fruit] - p1[1][fruit]; });
-        if (scores.some(function (order) { return order <= 0; })) {
-          return -1;
-        }
-        return 1;
-    });
-    return paths[0];
-  };
 }
 
 var strategy;
